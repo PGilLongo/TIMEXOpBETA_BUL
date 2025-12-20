@@ -86,10 +86,10 @@
   </script>
 
   <script>
-    // PWA: registra el Service Worker con scope correcto para GitHub Pages (/timex/)
+    // PWA
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/timex/service-worker.js", { scope: "/timex/" })
+        navigator.serviceWorker.register("./service-worker.js", { scope: "./" })
           .catch((err) => console.warn("SW register error:", err));
       });
     }

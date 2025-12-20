@@ -6,6 +6,7 @@
   <title>NAVEGADOR</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
   <style>
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; width: 100%; }
@@ -56,6 +57,48 @@
       gap:4px;
       white-space: nowrap;
     }
+  
+    .search-wrap{
+      margin-top:8px;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap: wrap;
+    }
+    #searchBox{
+      width: 260px;
+      max-width: 70vw;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(0,0,0,.25);
+      font-size: 14px;
+      outline: none;
+    }
+    #clearRouteBtn{
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(0,0,0,.25);
+      background: #fff;
+    }
+    #results{
+      margin-top:6px;
+      max-height: 220px;
+      overflow:auto;
+      border: 1px solid rgba(0,0,0,.15);
+      border-radius: 10px;
+      background: rgba(255,255,255,.98);
+      display:none;
+    }
+    .result-item{
+      padding: 8px 10px;
+      cursor:pointer;
+      border-bottom: 1px solid rgba(0,0,0,.06);
+      font-size: 14px;
+    }
+    .result-item:last-child{ border-bottom: none; }
+    .result-item:hover{ background: rgba(0,0,0,.04); }
+    .muted{ color: rgba(0,0,0,.6); font-size: 12px; }
+
   </style>
 </head>
 <body>
@@ -74,6 +117,13 @@
       </button>
     </div>
 
+    <div class="search-wrap">
+      <input id="searchBox" type="search" placeholder="Buscar punto por nombre…" autocomplete="off" />
+      <button id="clearRouteBtn" type="button" title="Quitar la ruta actual">Quitar ruta</button>
+      <span class="muted" id="searchHint">Carga KMZ para buscar.</span>
+    </div>
+    <div id="results" aria-label="Resultados de búsqueda"></div>
+
     <input type="file" id="kmzFile" accept=".kmz" multiple />
     <small id="status">Pidiendo ubicación…</small>
   </div>
@@ -91,6 +141,105 @@
     const fitAllBtn = document.getElementById("fitAllBtn");
     const kmzInput = document.getElementById("kmzFile");
     const chooseFilesBtn = document.getElementById("chooseFilesBtn");
+
+    // Buscador + rutas
+    const searchBox = document.getElementById("searchBox");
+    const resultsEl = document.getElementById("results");
+    const clearRouteBtn = document.getElementById("clearRouteBtn");
+    const searchHint = document.getElementById("searchHint");
+
+    // Índice de puntos (placemarks) por nombre
+    // { name, latlng, marker, kmzLabel }
+    const poiIndex = [];
+
+    // Ruta actual (Leaflet Routing Machine)
+    let routingControl = null;
+
+    function clearRoute(){
+      if(routingControl){
+        map.removeControl(routingControl);
+        routingControl = null;
+      }
+    }
+    clearRouteBtn.addEventListener("click", clearRoute);
+
+    function normalize(s){
+      return (s ?? "").toString().trim();
+    }
+
+    function setResultsVisible(v){
+      resultsEl.style.display = v ? "block" : "none";
+    }
+
+    function renderResults(items){
+      resultsEl.innerHTML = "";
+      if(!items.length){
+        setResultsVisible(false);
+        return;
+      }
+      const frag = document.createDocumentFragment();
+      items.slice(0, 80).forEach((it)=>{
+        const div = document.createElement("div");
+        div.className = "result-item";
+        div.innerHTML = `<b>${it.name || "Sin nombre"}</b><br/><span class="muted">${it.kmzLabel}</span>`;
+        div.addEventListener("click", ()=>{
+          setResultsVisible(false);
+          searchBox.blur();
+
+          // centrar y abrir popup si existe
+          map.setView(it.latlng, Math.max(map.getZoom(), 17));
+          if(it.marker && it.marker.openPopup) it.marker.openPopup();
+
+          if(!lastLatLng){
+            statusEl.textContent = "Aún no tengo tu ubicación. Activa el GPS/permiso y prueba otra vez.";
+            return;
+          }
+
+          clearRoute();
+          routingControl = L.Routing.control({
+            waypoints: [ lastLatLng, it.latlng ],
+            addWaypoints: false,
+            draggableWaypoints: false,
+            routeWhileDragging: false,
+            show: false,
+            fitSelectedRoutes: true,
+            lineOptions: { addWaypoints:false }
+          }).addTo(map);
+
+          statusEl.textContent = `Ruta: tu ubicación → ${it.name || "punto seleccionado"}`;
+        });
+        frag.appendChild(div);
+      });
+      resultsEl.appendChild(frag);
+      setResultsVisible(true);
+    }
+
+    function doSearch(){
+      const q = normalize(searchBox.value).toLowerCase();
+      if(!poiIndex.length){
+        searchHint.textContent = "Carga KMZ para buscar.";
+        setResultsVisible(false);
+        return;
+      }
+      if(!q){
+        searchHint.textContent = `Escribe para buscar entre ${poiIndex.length} puntos…`;
+        setResultsVisible(false);
+        return;
+      }
+      const hits = poiIndex.filter(p => (p.name || "").toLowerCase().includes(q));
+      searchHint.textContent = `${hits.length} resultado(s)`;
+      renderResults(hits);
+    }
+
+    searchBox.addEventListener("input", doSearch);
+    searchBox.addEventListener("focus", doSearch);
+
+    // Cierra resultados al clicar fuera
+    document.addEventListener("click", (e)=>{
+      const inHud = e.target.closest && e.target.closest(".hud");
+      if(!inHud) setResultsVisible(false);
+    });
+
 
     // Abrir selector de archivos SIN contraseña
     chooseFilesBtn.addEventListener("click", () => {
@@ -225,7 +374,14 @@
       const geojson = toGeoJSON.kml(dom);
 
       const layer = L.geoJSON(geojson,{
-        pointToLayer:(f,ll)=>L.marker(ll,{icon:kmzDotIcon}),
+        pointToLayer:(feature,ll)=>{
+          const marker = L.marker(ll,{icon:kmzDotIcon});
+          // Indexar solo puntos con coordenadas
+          const name = feature?.properties?.name ?? "Elemento";
+          poiIndex.push({ name, latlng: ll, marker, kmzLabel: file.name });
+          searchHint.textContent = `Escribe para buscar entre ${poiIndex.length} puntos…`;
+          return marker;
+        },
         onEachFeature:(feature, lyr)=>{
           const name = feature?.properties?.name ?? "Elemento";
           const desc = feature?.properties?.description ?? "";
