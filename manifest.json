@@ -1,0 +1,23 @@
+{
+  "name": "TIMEX Operativo",
+  "short_name": "TIMEX",
+  "description": "TIMEX PWA Operativa",
+  "start_url": "/timex/index.html",
+  "scope": "/timex/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "/timex/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/timex/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
