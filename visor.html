@@ -24,9 +24,13 @@
       display: flex;
       gap: 8px;
       align-items: center;
+      max-width: calc(100% - 24px);
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
     .dot { width: 10px; height: 10px; border-radius: 50%; display:inline-block; }
-    .muted { color:#555; }
+    .muted { color:#555; overflow:hidden; text-overflow: ellipsis; }
 
     .pin {
       width: 16px;
@@ -79,6 +83,12 @@
       });
     }
 
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, s => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[s]));
+    }
+
     function showMarker(payload) {
       const estado = (payload && payload.estado) ? String(payload.estado).toUpperCase().trim() : 'DESCONOCIDO';
       const lat = Number(payload && payload.lat);
@@ -106,19 +116,14 @@
       estadoTxt.textContent = 'Esperando eventos…';
     }
 
-    function escapeHtml(str) {
-      return String(str).replace(/[&<>"']/g, s => ({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-      }[s]));
-    }
-
     window.VISOR = { showMarker, clear };
 
     window.addEventListener('message', (event) => {
       const data = event && event.data;
       if (!data || typeof data !== 'object') return;
       if (data.type !== 'VISOR_MARKER') return;
-      showMarker(data.payload || data);
+      const payload = data.payload || data;
+      showMarker(payload);
     });
   </script>
 </body>
