@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VISOR</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100%; width: 100%; }
+
+    .badge {
+      position: absolute;
+      z-index: 1000;
+      top: 12px;
+      left: 12px;
+      background: rgba(255,255,255,0.95);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      font-size: 13px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display:inline-block; }
+    .muted { color:#555; }
+
+    .pin {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.95);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="badge">
+    <span class="dot" id="estadoDot" style="background:#999;"></span>
+    <span id="estadoTxt" class="muted">Esperando eventos…</span>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([40.4168, -3.7038], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const layer = L.layerGroup().addTo(map);
+
+    const estadoDot = document.getElementById('estadoDot');
+    const estadoTxt = document.getElementById('estadoTxt');
+
+    const COLORS = {
+      ACTIVACION: '#2563eb',
+      INTERVENCION: '#f59e0b',
+      FINALIZACION: '#16a34a',
+      DISPONIBLES: '#6b7280'
+    };
+
+    function colorForEstado(estado) {
+      const k = String(estado || '').toUpperCase().trim();
+      return COLORS[k] || '#999';
+    }
+
+    function pinIcon(color) {
+      return L.divIcon({
+        className: '',
+        html: '<div class="pin" style="background:' + color + ';"></div>',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+    }
+
+    function showMarker(payload) {
+      const estado = (payload && payload.estado) ? String(payload.estado).toUpperCase().trim() : 'DESCONOCIDO';
+      const lat = Number(payload && payload.lat);
+      const lng = Number(payload && payload.lng);
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+      const label = (payload && payload.label) ? String(payload.label) : estado;
+
+      layer.clearLayers();
+      const color = colorForEstado(estado);
+
+      const m = L.marker([lat, lng], { icon: pinIcon(color) }).addTo(layer);
+      m.bindPopup('<b>' + escapeHtml(label) + '</b><br><span style="color:#555;">' + escapeHtml(estado) + '</span>').openPopup();
+
+      map.setView([lat, lng], Math.max(map.getZoom(), 14));
+
+      estadoDot.style.background = color;
+      estadoTxt.textContent = estado + ' → ' + label;
+    }
+
+    function clear() {
+      layer.clearLayers();
+      estadoDot.style.background = '#999';
+      estadoTxt.textContent = 'Esperando eventos…';
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, s => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[s]));
+    }
+
+    window.VISOR = { showMarker, clear };
+
+    window.addEventListener('message', (event) => {
+      const data = event && event.data;
+      if (!data || typeof data !== 'object') return;
+      if (data.type !== 'VISOR_MARKER') return;
+      showMarker(data.payload || data);
+    });
+  </script>
+</body>
+</html>
