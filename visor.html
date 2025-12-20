@@ -1,133 +1,47 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>VISOR</title>
-
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    html, body { height: 100%; margin: 0; }
-    #map { height: 100%; width: 100%; }
-
-    .badge {
-      position: absolute;
-      z-index: 1000;
-      top: 12px;
-      left: 12px;
-      background: rgba(255,255,255,0.95);
-      border-radius: 999px;
-      padding: 8px 12px;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      font-size: 13px;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.15);
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      max-width: calc(100% - 24px);
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-    }
-    .dot { width: 10px; height: 10px; border-radius: 50%; display:inline-block; }
-    .muted { color:#555; overflow:hidden; text-overflow: ellipsis; }
-
-    .pin {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.95);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.35);
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VISOR</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html,body,#map{height:100%;margin:0}
+.pin{width:16px;height:16px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 10px rgba(0,0,0,.5)}
+.badge{position:absolute;top:10px;left:10px;z-index:999;background:#fff;padding:6px 10px;border-radius:999px;font-family:system-ui}
+</style>
 </head>
 <body>
-  <div id="map"></div>
-  <div class="badge">
-    <span class="dot" id="estadoDot" style="background:#999;"></span>
-    <span id="estadoTxt" class="muted">Esperando eventos…</span>
-  </div>
+<div id="map"></div>
+<div class="badge" id="status">Esperando eventos…</div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    const map = L.map('map').setView([40.4168, -3.7038], 6);
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://zacogqlscfdwncugfkko.supabase.co";
+const SUPABASE_KEY = "sb_publishable_5D_QVNyeqroW9tQO_jnmoA_cHS8PXE_";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+const map = L.map("map").setView([40.4168,-3.7038],6);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);
+const layer = L.layerGroup().addTo(map);
 
-    const layer = L.layerGroup().addTo(map);
+function pin(color){
+  return L.divIcon({
+    html: '<div class="pin" style="background:'+color+'"></div>',
+    iconSize:[16,16]
+  });
+}
 
-    const estadoDot = document.getElementById('estadoDot');
-    const estadoTxt = document.getElementById('estadoTxt');
-
-    const FALLBACK_COLORS = {
-      ACTIVACION: '#f6d32d',
-      INTERVENCION: '#e01b24',
-      FINALIZACION: '#2ec27e',
-      DISPONIBLES: '#1c71d8'
-    };
-
-    function escapeHtml(str) {
-      return String(str).replace(/[&<>"']/g, s => ({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-      }[s]));
-    }
-
-    function pinIcon(color) {
-      return L.divIcon({
-        className: '',
-        html: '<div class="pin" style="background:' + color + ';"></div>',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
-      });
-    }
-
-    function normalizeColor(c){
-      const s = String(c || "").trim();
-      // allow hex, rgb/rgba, hsl etc - Leaflet will accept CSS colors; keep as-is if non-empty
-      return s ? s : null;
-    }
-
-    function showMarker(payload) {
-      const estado = (payload && payload.estado) ? String(payload.estado).toUpperCase().trim() : 'DESCONOCIDO';
-      const lat = Number(payload && payload.lat);
-      const lng = Number(payload && payload.lng);
-
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-
-      const label = (payload && payload.label) ? String(payload.label) : estado;
-
-      layer.clearLayers();
-
-      const color =
-        normalizeColor(payload && payload.color) ||
-        FALLBACK_COLORS[estado] ||
-        '#999';
-
-      const m = L.marker([lat, lng], { icon: pinIcon(color) }).addTo(layer);
-      m.bindPopup('<b>' + escapeHtml(label) + '</b><br><span style="color:#555;">' + escapeHtml(estado) + '</span>').openPopup();
-
-      map.setView([lat, lng], Math.max(map.getZoom(), 14));
-
-      estadoDot.style.background = color;
-      estadoTxt.textContent = estado + ' → ' + label;
-    }
-
-    window.VISOR = { showMarker };
-
-    // BroadcastChannel (principal)
-    try{
-      const bc = new BroadcastChannel('VISOR_CHANNEL');
-      bc.onmessage = (ev) => {
-        const data = ev && ev.data;
-        if (!data || typeof data !== 'object') return;
-        if (data.type !== 'VISOR_MARKER') return;
-        const payload = data.payload || data;
-        showMarker(payload);
-      };
-    }catch(e){}
-  </script>
+sb.channel("visor")
+  .on("postgres_changes",{event:"INSERT",schema:"public",table:"visor_events"},payload=>{
+    const d = payload.new;
+    layer.clearLayers();
+    L.marker([d.lat,d.lng],{icon:pin(d.color||"#000")}).addTo(layer);
+    map.setView([d.lat,d.lng],14);
+    document.getElementById("status").textContent = d.estado;
+  })
+  .subscribe();
+</script>
 </body>
 </html>
