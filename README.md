@@ -31,4 +31,3 @@ Opción rápida:
 ## Offline
 - La PWA cachea tus HTML + iconos.
 - Los recursos externos (CDN de Leaflet/OSM tiles, etc.) se intentan guardar, pero si no hay conexión algunas cosas (tiles) pueden no cargar.
-.
