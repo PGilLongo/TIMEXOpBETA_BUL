@@ -286,8 +286,7 @@
         <div class="topActions">
           <div class="pill" id="status">ACTIVACIÓN</div>
           <button class="actionBtn" id="toggleLogBtn" type="button" disabled>📋 Ver resultado</button>
-          <button class="actionBtn" id="fsBtn" type="button">⛶ Pantalla completa</button>
-        </div>
+                  </div>
         <div class="timer timer-activacion" id="timer">00:00:00</div>
       </div>
     </header>
@@ -418,8 +417,6 @@
 
     const panel = document.getElementById("panel");
     const logEl = document.getElementById("log");
-
-    const fsBtn = document.getElementById("fsBtn");
     const toggleLogBtn = document.getElementById("toggleLogBtn");
     const copyBtn = document.getElementById("copyBtn");
     const hideBtn = document.getElementById("hideBtn");
@@ -650,50 +647,6 @@
       const q = `${loc.lat},${loc.lon}`;
       return `https://maps.google.com/?q=${encodeURIComponent(q)}`;
     }
-
-    const FS_EXIT_PASSWORD = "Pdft@2026";
-    let fsAuthorizedExit = false;
-
-    async function toggleFullscreen(){
-      try{
-        if(!document.fullscreenElement){
-          await document.documentElement.requestFullscreen();
-          fsBtn.textContent = "⛶ Salir pantalla completa";
-          return;
-        }
-
-        const pass = window.prompt("Contraseña para salir de pantalla completa:");
-        if(pass !== FS_EXIT_PASSWORD){
-          alert("Contraseña incorrecta.");
-          return;
-        }
-
-        fsAuthorizedExit = true;
-        await document.exitFullscreen();
-      }catch{
-        alert("Tu navegador no permite pantalla completa en este contexto.");
-      }
-    }
-    fsBtn.addEventListener("click", toggleFullscreen);
-
-    document.addEventListener("fullscreenchange", async () => {
-      const isFs = !!document.fullscreenElement;
-      fsBtn.textContent = isFs ? "⛶ Salir pantalla completa" : "⛶ Pantalla completa";
-
-      if(!isFs && !fsAuthorizedExit){
-        alert("Para salir de pantalla completa debes introducir la contraseña.");
-        try{ await document.documentElement.requestFullscreen(); }catch{}
-      }
-      fsAuthorizedExit = false;
-    });
-
-    document.addEventListener("keydown", (e) => {
-      if(e.key === "Escape" && document.fullscreenElement){
-        e.preventDefault();
-        e.stopPropagation();
-        toggleFullscreen();
-      }
-    }, true);
 
     function makeEmojiPoint(emoji){
       const c = document.createElement("canvas");
