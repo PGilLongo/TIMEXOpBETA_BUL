@@ -906,10 +906,10 @@ const clearRoute = () => {
   if (!isFinite(bearing)) {
     // Busca un punto anterior suficientemente separado para calcular un rumbo real y no ruido del GPS
     let ref = null;
-    for (let i = posHistory.length - 2; i >= 0; i--) {
+    for (let i = 0; i < posHistory.length - 1; i++) {
       const cand = posHistory[i].ll;
       const dist = cand.distanceTo(nextLatLng);
-      if (dist >= 2.0) { ref = cand; break; }
+      if (dist >= 0.8) { ref = cand; break; }
     }
     if (ref) bearing = bearingBetween(ref, nextLatLng);
   }
@@ -932,12 +932,15 @@ const clearRoute = () => {
     myAccuracyCircle.setRadius(accuracy);
   }
 
-  if (followChk.checked && isFinite(bearing)) {
-    setMapRotationDegrees(bearing);
-    setMeBearingDegrees(bearing); // cancela la rotación del mapa y deja la flecha/imagen orientada
+  if (followChk.checked) {
+    const b = (typeof bearing === "number" && isFinite(bearing)) ? bearing : lastBearing;
+    if (typeof b === "number" && isFinite(b)) {
+      setMapRotationDegrees(b);
+      setMeBearingDegrees(b); // flecha/imagen orientada a la marcha
+    }
   } else {
     clearMapRotation();
-    setMeBearingDegrees(isFinite(bearing) ? bearing : 0);
+    setMeBearingDegrees((typeof bearing === "number" && isFinite(bearing)) ? bearing : 0);
   }
 
   if (firstFix) {
@@ -995,9 +998,12 @@ const clearRoute = () => {
       
 followChk.addEventListener("change", () => {
   if (followChk.checked) {
-    if (isFinite(lastBearing)) {
-      setMapRotationDegrees(lastBearing);
-      setMeBearingDegrees(lastBearing);
+    const b = (typeof lastBearing === "number" && isFinite(lastBearing))
+      ? lastBearing
+      : ((typeof compassBearing === "number" && isFinite(compassBearing)) ? compassBearing : NaN);
+    if (typeof b === "number" && isFinite(b)) {
+      setMapRotationDegrees(b);
+      setMeBearingDegrees(b);
     }
   } else {
     clearMapRotation();
