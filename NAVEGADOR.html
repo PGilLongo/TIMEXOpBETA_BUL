@@ -157,11 +157,39 @@
       overflow: hidden;
     }
 
+  
+    /* --- Minimizar panel (HUD) --- */
+    .hud-header{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap:10px;
+    }
+    .hud-header .row{ flex: 1 1 auto; }
+    .hud-toggle{
+      border: 1px solid rgba(0,0,0,.25);
+      background: #fff;
+      border-radius: 8px;
+      padding: 2px 8px;
+      font-size: 14px;
+      line-height: 18px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .hud.minimized{
+      padding: 8px 10px;
+    }
+    .hud.minimized .hud-body{
+      display:none;
+    }
+
+
   </style>
 </head>
 <body>
-  <div class="hud">
-    <div class="row">
+  <div class="hud" id="hud">
+    <div class="hud-header">
+      <div class="row">
       <button id="recenterBtn" type="button">Centrarme</button>
       <button id="fitAllBtn" type="button">Ver todo</button>
 
@@ -174,8 +202,11 @@
         Elegir archivos
       </button>
     </div>
+      <button id="hudToggleBtn" class="hud-toggle" type="button" aria-label="Minimizar panel" title="Minimizar / expandir">▾</button>
+    </div>
 
-    <div class="search-wrap">
+    <div class="hud-body">
+      <div class="search-wrap">
       <input id="searchBox" type="search" placeholder="Buscar punto por nombre…" autocomplete="off" />
       <button id="clearRouteBtn" type="button" title="Quitar la ruta actual">Quitar ruta</button>
       <span id="searchHint" style="display:none"></span>
@@ -200,6 +231,8 @@
       <button id="meSizeDownBtn" type="button" class="size-btn" title="Icono ubicación más pequeño">−</button>
       <button id="meSizeUpBtn" type="button" class="size-btn" title="Icono ubicación más grande">+</button>
     </div>
+    </div>
+
 <input type="file" id="kmzFile" accept=".kmz" multiple />
     <small id="status" style="display:none"></small>
   </div>
@@ -218,6 +251,81 @@
     const fitAllBtn = document.getElementById("fitAllBtn");
     const kmzInput = document.getElementById("kmzFile");
     const chooseFilesBtn = document.getElementById("chooseFilesBtn");
+    const hudEl = document.getElementById("hud");
+    const hudToggleBtn = document.getElementById("hudToggleBtn");
+
+    // -----------------------------
+    // Persistencia (KMZ + iconos)
+    // -----------------------------
+    const KMZ_DB_NAME = "kmz_navegador_db";
+    const KMZ_DB_VERSION = 1;
+    const KMZ_STORE = "kmzFiles";
+    const LS_KMZ_META_KEY = "kmz_meta_v1";
+    const LS_ME_ICON_KEY = "me_icon_v1";
+
+    function safeJsonParse(str, fallback){
+      try{ return JSON.parse(str); }catch(e){ return fallback; }
+    }
+
+    function openKmzDb(){
+      return new Promise((resolve,reject)=>{
+        const req = indexedDB.open(KMZ_DB_NAME, KMZ_DB_VERSION);
+        req.onupgradeneeded = ()=>{
+          const db = req.result;
+          if(!db.objectStoreNames.contains(KMZ_STORE)){
+            const store = db.createObjectStore(KMZ_STORE, { keyPath: "id" });
+            store.createIndex("addedAt","addedAt",{unique:false});
+          }
+        };
+        req.onsuccess = ()=> resolve(req.result);
+        req.onerror = ()=> reject(req.error);
+      });
+    }
+
+    async function idbPutKmz(id, fileName, arrayBuffer){
+      const db = await openKmzDb();
+      return new Promise((resolve,reject)=>{
+        const tx = db.transaction(KMZ_STORE, "readwrite");
+        tx.objectStore(KMZ_STORE).put({ id, fileName, buffer: arrayBuffer, addedAt: Date.now() });
+        tx.oncomplete = ()=>{ db.close(); resolve(true); };
+        tx.onerror = ()=>{ const err=tx.error; db.close(); reject(err); };
+      });
+    }
+
+    async function idbGetAllKmz(){
+      const db = await openKmzDb();
+      return new Promise((resolve,reject)=>{
+        const tx = db.transaction(KMZ_STORE, "readonly");
+        const req = tx.objectStore(KMZ_STORE).getAll();
+        req.onsuccess = ()=>{ const rows=req.result||[]; db.close(); resolve(rows); };
+        req.onerror = ()=>{ const err=req.error; db.close(); reject(err); };
+      });
+    }
+
+    function saveKmzMeta(){
+      const meta = kmzLayersList.map(e=>({
+        label: e.label,
+        fileName: e.fileName,
+        color: e.color,
+        iconUrl: e.iconUrl || "",
+        iconSize: e.iconSize || 10
+      }));
+      try{ localStorage.setItem(LS_KMZ_META_KEY, JSON.stringify(meta)); }catch(e){}
+    }
+
+    function loadKmzMeta(){
+      try{ return safeJsonParse(localStorage.getItem(LS_KMZ_META_KEY), []); }catch(e){ return []; }
+    }
+
+    function saveMeIconPrefs(){
+      const prefs = { url: meIconUrl || "", size: meIconSize || 14 };
+      try{ localStorage.setItem(LS_ME_ICON_KEY, JSON.stringify(prefs)); }catch(e){}
+    }
+
+    function loadMeIconPrefs(){
+      try{ return safeJsonParse(localStorage.getItem(LS_ME_ICON_KEY), null); }catch(e){ return null; }
+    }
+
 
     // Buscador + rutas
     const searchBox = document.getElementById("searchBox");
@@ -329,6 +437,31 @@
       if(!inHud) setResultsVisible(false);
     });
 
+    // --- Minimizar / expandir HUD ---
+    function setHudMinimized(min){
+      if(!hudEl || !hudToggleBtn) return;
+      hudEl.classList.toggle("minimized", !!min);
+      hudToggleBtn.textContent = min ? "▸" : "▾";
+      hudToggleBtn.setAttribute("aria-label", min ? "Expandir panel" : "Minimizar panel");
+      hudToggleBtn.title = min ? "Expandir / mostrar" : "Minimizar / ocultar";
+      try{ localStorage.setItem("hud_minimized_v1", min ? "1" : "0"); }catch(e){}
+    }
+
+    // Restaurar estado del panel
+    try{
+      const v = localStorage.getItem("hud_minimized_v1");
+      if(v === "1") setHudMinimized(true);
+    }catch(e){}
+
+    if(hudToggleBtn){
+      hudToggleBtn.addEventListener("click", (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        setHudMinimized(!hudEl.classList.contains("minimized"));
+      });
+    }
+
+
 
     // Abrir selector de archivos SIN contraseña
     chooseFilesBtn.addEventListener("click", () => {
@@ -401,6 +534,14 @@
     let myMarker=null, myAccuracyCircle=null, lastLatLng=null, firstFix=true;
     let meIconUrl = "";
     let meIconSize = 14;
+
+    // Restaurar icono de "mi ubicación"
+    const mePrefs = loadMeIconPrefs();
+    if(mePrefs && typeof mePrefs === "object"){
+      if(typeof mePrefs.url === "string") meIconUrl = mePrefs.url;
+      if(typeof mePrefs.size === "number" && isFinite(mePrefs.size)) meIconSize = Math.max(6, Math.min(96, Math.round(mePrefs.size)));
+    }
+
 
     function updateMyLocation(pos){
       const {latitude, longitude, accuracy} = pos.coords;
@@ -475,23 +616,27 @@
         meIconUrl = "";
         meIconSize = 14;
         myMarker && myMarker.setIcon(meIcon);
+        saveMeIconPrefs();
         return;
       }
       meIconUrl = url;
       meIconSize = meIconSize || 14;
       myMarker && myMarker.setIcon(makeMeImageIcon(meIconUrl, meIconSize));
+          saveMeIconPrefs();
     });
 
     meSizeUpBtn.addEventListener("click", ()=>{
       if(!meIconUrl) return;
       meIconSize += 5;
       myMarker && myMarker.setIcon(makeMeImageIcon(meIconUrl, meIconSize));
+          saveMeIconPrefs();
     });
 
     meSizeDownBtn.addEventListener("click", ()=>{
       if(!meIconUrl) return;
       meIconSize = Math.max(5, meIconSize - 5);
       myMarker && myMarker.setIcon(makeMeImageIcon(meIconUrl, meIconSize));
+          saveMeIconPrefs();
     });
 
     // --- Iconos por KMZ (URL directa) ---
@@ -510,32 +655,32 @@
     function applyIconToKmz(label, iconUrl){
       const entry = getKmzEntryByLabel(label);
       if(!entry){
-        
         return;
       }
       const url = (iconUrl || "").trim();
       if(!url){
-        
         return;
       }
 
+      entry.iconUrl = url;
+      // si no hay tamaño definido, usa el actual o 10
+      entry.iconSize = (typeof entry.iconSize === "number" && isFinite(entry.iconSize)) ? entry.iconSize : 10;
+
       const icon = makeKmzImageIcon(url, entry.iconSize);
       entry.markers.forEach(m => m.setIcon(icon));
-      entry.iconUrl = url;
-      
+      saveKmzMeta();
     }
 
     function resetIconToDot(label){
       const entry = getKmzEntryByLabel(label);
       if(!entry){
-        
         return;
       }
       const dot = makeKmzDotIcon(entry.color);
       entry.markers.forEach(m => m.setIcon(dot));
       entry.iconUrl = "";
       entry.iconSize = 10;
-      
+      saveKmzMeta();
     }
 
     applyIconBtn.addEventListener("click", ()=>{
@@ -555,13 +700,12 @@
     function resizeKmzIcon(label, delta){
       const entry = getKmzEntryByLabel(label);
       if(!entry || !entry.iconUrl){
-        
         return;
       }
-      entry.iconSize = Math.max(5, entry.iconSize + delta);
+      entry.iconSize = Math.max(5, (entry.iconSize || 10) + delta);
       const icon = makeKmzImageIcon(entry.iconUrl, entry.iconSize);
       entry.markers.forEach(m => m.setIcon(icon));
-      
+      saveKmzMeta();
     }
 
     sizeUpBtn.addEventListener("click", ()=>{
@@ -579,49 +723,46 @@
     });
 
 
-    async function loadKmzFile(file){
-      
-
+    async function loadKmzData(fileName, arrayBuffer, meta){
       // Color e icono para ESTE KMZ
-      const color = kmzColorForIndex(kmzCounter);
+      const color = (meta && meta.color) ? meta.color : kmzColorForIndex(kmzCounter);
       const kmzDotIcon = makeKmzDotIcon(color);
 
       // Registro para poder cambiar el icono de este KMZ más tarde
-      const entry = { label: "", fileName: file.name, color, layer: null, markers: [], iconUrl: "", iconSize: 10 };
+      const entry = {
+        label: (meta && meta.label) ? meta.label : "",
+        fileName,
+        color,
+        layer: null,
+        markers: [],
+        iconUrl: (meta && meta.iconUrl) ? meta.iconUrl : "",
+        iconSize: (meta && meta.iconSize) ? meta.iconSize : 10
+      };
 
-      const zip = await JSZip.loadAsync(await file.arrayBuffer());
-      const kmlName = Object.keys(zip.files)
-        .find(n => n.toLowerCase().endsWith(".kml"));
-
+      const zip = await JSZip.loadAsync(arrayBuffer);
+      const kmlName = Object.keys(zip.files).find(n => n.toLowerCase().endsWith(".kml"));
       if(!kmlName) throw new Error("KMZ sin .kml interno");
 
-      const dom = new DOMParser().parseFromString(
-        await zip.files[kmlName].async("text"),
-        "text/xml"
-      );
-
+      const dom = new DOMParser().parseFromString(await zip.files[kmlName].async("text"), "text/xml");
       const geojson = toGeoJSON.kml(dom);
+
+      // Si hay icono guardado, úsalo desde el primer render
+      const pointIcon = entry.iconUrl ? makeKmzImageIcon(entry.iconUrl, entry.iconSize) : kmzDotIcon;
 
       const layer = L.geoJSON(geojson,{
         pointToLayer:(feature,ll)=>{
-          const marker = L.marker(ll,{icon:kmzDotIcon});
+          const marker = L.marker(ll,{icon: pointIcon});
           entry.markers.push(marker);
-          // Indexar solo puntos con coordenadas
-          const name = feature?.properties?.name ?? "Elemento";
-          poiIndex.push({ name, latlng: ll, marker, kmzLabel: file.name });
-          
+          const nm = (feature && feature.properties && feature.properties.name) ? String(feature.properties.name) : "";
+          if(nm){
+            poiIndex.push({ name: nm, latlng: ll, marker, kmzLabel: entry.label || "" });
+          }
           return marker;
-        },
-        onEachFeature:(feature, lyr)=>{
-          const name = feature?.properties?.name ?? "Elemento";
-          const desc = feature?.properties?.description ?? "";
-          lyr.bindPopup(
-            desc ? `<b>${name}</b><br/>${desc}` : `<b>${name}</b>`
-          );
         }
       }).addTo(map);
 
-      const label = `${kmzCounter++}. ${file.name}`;
+      // Etiqueta
+      const label = entry.label ? entry.label : `${kmzCounter++}. ${fileName}`;
       entry.label = label;
       entry.layer = layer;
 
@@ -636,16 +777,77 @@
         opt.textContent = label;
         kmzSelect.appendChild(opt);
         kmzSelect.disabled = false;
-        kmzSelect.value = label; // por defecto, el último cargado
+        kmzSelect.value = label;
         iconUrlInput.value = "";
       }
 
       const b = layer.getBounds?.();
-      if(b && b.isValid && b.isValid())
-        map.fitBounds(b.pad(.2));
+      if(b && b.isValid && b.isValid()) map.fitBounds(b.pad(.2));
 
-      
+      // Persistir metadatos (icono incluido)
+      saveKmzMeta();
     }
+
+    // Wrapper: carga desde archivo seleccionado por el usuario y lo guarda en IndexedDB
+    async function loadKmzFile(file){
+      const buf = await file.arrayBuffer();
+      await loadKmzData(file.name, buf, null);
+
+      // Guardar binario en IndexedDB usando la etiqueta recién creada (último elemento)
+      const last = kmzLayersList[kmzLayersList.length - 1];
+      if(last && last.label){
+        try{ await idbPutKmz(last.label, last.fileName, buf); }catch(e){}
+      }
+    }
+
+    // Restaurar KMZ persistidos al abrir la app
+    async function restorePersistedKmz(){
+      const meta = loadKmzMeta();
+      let rows = [];
+      try{ rows = await idbGetAllKmz(); }catch(e){ rows = []; }
+
+      const metaMap = new Map((meta||[]).map(m=>[m.label, m]));
+
+      rows.sort((a,b)=>{
+        const getN = (x)=>{
+          const s = (x && x.id) ? String(x.id) : "";
+          const m = s.match(/^(\d+)\./);
+          return m ? parseInt(m[1],10) : null;
+        };
+        const na = getN(a), nb = getN(b);
+        if(na!=null && nb!=null) return na-nb;
+        if(na!=null) return -1;
+        if(nb!=null) return 1;
+        return (a.addedAt||0)-(b.addedAt||0);
+      });
+
+      let maxN = 0;
+      for(const r of rows){
+        const m = metaMap.get(r.id) || { label: r.id, fileName: r.fileName };
+        const mm = String(m.label||"").match(/^(\d+)\./);
+        if(mm){
+          const n = parseInt(mm[1],10);
+          if(n > maxN) maxN = n;
+        }
+        try{ await loadKmzData(r.fileName, r.buffer, m); }catch(e){}
+      }
+      if(maxN > 0) kmzCounter = maxN + 1;
+    }
+
+
+
+
+    // Al abrir la app, restaura KMZ e iconos persistidos
+    (async ()=>{
+      try{ await restorePersistedKmz(); }
+      catch(e){}
+      ensureKmzSelectEnabled();
+      // Rellena el input del icono con el estado del KMZ seleccionado
+      const entry = getKmzEntryByLabel(kmzSelect.value);
+      if(entry) iconUrlInput.value = entry.iconUrl || "";
+      // Restaurar UI del icono de "mi ubicación"
+      if(meIconUrlInput){ meIconUrlInput.value = meIconUrl || ""; }
+    })();
 
     kmzInput.onchange = async e=>{
       const files = Array.from(e.target.files || []);
