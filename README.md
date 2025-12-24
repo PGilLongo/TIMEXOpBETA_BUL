@@ -3,12 +3,14 @@ Pablo Gil Longo
 47468380-Z
 
 TIMEX (PWA)
+https://pgillongo.github.io/TIMEXOpBETA/
 PWA instalable (Android/Chrome, iOS/Safari, desktop).
 Instalar como app nativa
 - Android : menú ⋮ → Instalar aplicación / Añadir a pantalla de inicio.
 - iOS: botón Compartir → Añadir a pantalla de inicio.
 
 VISOR TIMEX (Navegador)
+https://pgillongo.github.io/VisorTIMEX/
 Web para la monitorización de los recursos con TIMEX activo.
 
 Notas
