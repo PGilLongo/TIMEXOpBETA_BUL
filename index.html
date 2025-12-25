@@ -204,7 +204,7 @@
     (() => {
       "use strict";
 
-      const APP_URL = "https://script.google.com/macros/s/AKfycby9LjuP_t_d9TPOmSvZ7l5flFaOenmdF5Gb0QEX8ovY1M4GNDBc6a7i8TCFb-9et-NQOw/exec";
+      const APP_URL = "https://script.google.com/macros/s/AKfycbxgvXBFMAV__g5IB0MBwR-hCSRyy9udt55esqefDasmUMwgLnOjiv6P-WUjgMyXjHrCBg/exec";
       const TOKEN = "1234";
       const GPS_INTERVAL = 5000;
       const STATES = new Set(["ACTIVACIÓN", "INTERVENCIÓN", "FINALIZACIÓN", "DISPONIBLES"]);
@@ -277,16 +277,22 @@
       };
 
       const gpsTick = () => {
-        if (!("geolocation" in navigator)) return gpsStop();
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const c = pos.coords || {};
-            send({ mode: "writeLoc", token: TOKEN, lat: c.latitude ?? "", lng: c.longitude ?? "" });
-          },
-          () => {},
-          { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 }
-        );
-      };
+  if (!("geolocation" in navigator)) return gpsStop();
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const c = pos.coords || {};
+      send({
+        mode: "writeLoc",
+        token: TOKEN,
+        lat: c.latitude ?? "",
+        lng: c.longitude ?? "",
+        cell: "A2"
+      });
+    },
+    () => {},
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 }
+  );
+};
 
       const gpsStart = () => {
         if (gpsTimer) return;
