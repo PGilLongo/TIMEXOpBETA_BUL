@@ -208,12 +208,12 @@
     }
 
     /* =========================
-       COMPACT FIT (AUTO) - reduce height, no vertical scrollbar
+       COMPACT FIT (AUTO)
        ========================= */
     html,body{height:100%;}
     body{
       padding:8px;
-      overflow:hidden; /* no vertical scrollbar */
+      overflow:hidden;
       align-items:stretch;
     }
     .app{
@@ -241,7 +241,6 @@
     .label{font-size:10px}
     .ts{font-size:12px}
 
-    /* Modal fits screen without inner scrollbars */
     .overlay{padding:10px}
     .modal{
       width:min(520px,100%);
@@ -252,7 +251,7 @@
     .modalHeader p{font-size:12px}
     .modalBody{
       padding:10px 14px;
-      overflow:hidden; /* avoid scrollbars */
+      overflow:hidden;
     }
     .modalFooter{padding:10px 14px}
     .footerBtn{padding:8px 10px;border-radius:10px;font-size:12px}
@@ -286,22 +285,22 @@
     <main>
       <div class="row">
         <button id="btnA" class="mainBtn yellow" type="button">ACTIVACIÓN</button>
-        <div class="meta"><div class="label">Marcador</div><div class="ts" id="tsA">—</div></div>
+        <div class="meta"><div class="label">Marcador</div><div class="ts" id="tsA">---</div></div>
       </div>
 
       <div class="row">
         <button id="btnI" class="mainBtn red" type="button" disabled>INTERVENCIÓN</button>
-        <div class="meta"><div class="label">Marcador</div><div class="ts" id="tsI">—</div></div>
+        <div class="meta"><div class="label">Marcador</div><div class="ts" id="tsI">---</div></div>
       </div>
 
       <div class="row">
         <button id="btnF" class="mainBtn green" type="button" disabled>FINALIZACIÓN</button>
-        <div class="meta"><div class="label">Marcador</div><div class="ts" id="tsF">—</div></div>
+        <div class="meta"><div class="label">Marcador</div><div class="ts" id="tsF">---</div></div>
       </div>
 
       <div class="row">
         <button id="btnD" class="mainBtn blue" type="button" disabled>DISPONIBLES</button>
-        <div class="meta"><div class="label">Marcador</div><div class="ts" id="tsD">—</div></div>
+        <div class="meta"><div class="label">Marcador</div><div class="ts" id="tsD">---</div></div>
       </div>
     </main>
   </div>
@@ -325,9 +324,10 @@
     // CONFIGURACIÓN UI
     // ==========================================================
     // Si está en true, NO se mostrarán formularios/ventanas entre estados
-    // (Servicio, Intervinientes, Material, Informe, etc.) y el flujo avanzará
-    // automáticamente usando valores vacíos/"—".
+    // y se enviarán '---' en esas celdas.
     const HIDE_FORMS_BETWEEN_STATES = true;
+    const PLACEHOLDER_CELL = "---";
+
     const TH_ACTIVACION = 180;
     const TH_INTERVENCION = 1800;
 
@@ -415,12 +415,13 @@
 
     const headerTitleEl = document.getElementById("headerTitle");
 
-    let alertante = "";
-    let servicio = "—";
-    let lugar = "";
-    let informe = "";
-    let intervinientes = new Set();
-    let materiales = new Set();
+    // ---- valores (si no se rellenan, deben ir como '---') ----
+    let alertante = PLACEHOLDER_CELL;
+    let servicio = PLACEHOLDER_CELL;
+    let lugar = PLACEHOLDER_CELL;
+    let informe = PLACEHOLDER_CELL;
+    let intervinientes = new Set([PLACEHOLDER_CELL]);
+    let materiales = new Set([PLACEHOLDER_CELL]);
 
     let timerStartMs = null;
     let timerInterval = null;
@@ -433,6 +434,19 @@
     let pendingServicio = null;
 
     let locA = null, locI = null, locF = null, locD = null;
+
+    // --- helpers para forzar placeholder ---
+    const isBlank = (v) => v === null || v === undefined || String(v).trim() === "";
+    const cell = (v) => isBlank(v) ? PLACEHOLDER_CELL : String(v).trim();
+
+    function setSetWithPlaceholderIfEmpty(setObj){
+      const arr = Array.from(setObj || []);
+      const cleaned = arr.map(x => String(x).trim()).filter(x => x.length > 0);
+      if(cleaned.length === 0) return [PLACEHOLDER_CELL];
+      if(cleaned.length === 1 && cleaned[0] === PLACEHOLDER_CELL) return [PLACEHOLDER_CELL];
+      // si hay valores reales, quitamos placeholder si estaba
+      return cleaned.filter(x => x !== PLACEHOLDER_CELL);
+    }
 
     // --- VISOR (envío remoto, NO abre ventanas) ---
     function __sendToVISOR(estado, loc, label){
@@ -521,7 +535,7 @@
     }
 
     /* =========================
-       ✅ FIX GEOLOCALIZACIÓN MÓVIL (MOD: NO “CACHE DIRECTO”)
+       ✅ FIX GEOLOCALIZACIÓN MÓVIL
        ========================= */
 
     let __lastGoodLoc = null;
@@ -615,7 +629,8 @@
     function getLocationOnce(cb){
       getLocationSmart().then(loc => cb(loc)).catch(() => cb(null));
     }
-    /* ===== FIN FIX GEO (MOD) ===== */
+
+    // =========================
 
     function computeDeltasSeconds(){
       const activacion = (tA && tI) ? Math.max(0, Math.round((tI - tA)/1000)) : 0;
@@ -626,21 +641,28 @@
 
     function sendCycleToSheet(){
       const d = computeDeltasSeconds();
+
       const payload = {
-        alertante,
-        servicio,
-        lugar,
-        intervinientes: Array.from(intervinientes),
-        materiales: Array.from(materiales),
-        tsA: tsA.textContent,
-        tsI: tsI.textContent,
-        tsF: tsF.textContent,
-        tsD: tsD.textContent,
+        alertante: cell(alertante),
+        servicio: cell(servicio),
+        lugar: cell(lugar),
+
+        // IMPORTANT: si no hay selección real -> ["---"]
+        intervinientes: setSetWithPlaceholderIfEmpty(intervinientes),
+        materiales: setSetWithPlaceholderIfEmpty(materiales),
+
+        tsA: cell(tsA.textContent),
+        tsI: cell(tsI.textContent),
+        tsF: cell(tsF.textContent),
+        tsD: cell(tsD.textContent),
+
         total: timerEl.textContent,
         dA: d.activacion,
         dI: d.intervencion,
         dF: d.finalizacion,
-        informe,
+
+        informe: cell(informe),
+
         locA, locI, locF, locD
       };
 
@@ -650,26 +672,36 @@
     function openModal(flow){
       if(HIDE_FORMS_BETWEEN_STATES){
         if(flow === "activation"){
-          alertante = alertante || "";
-          servicio = servicio || "—";
-          lugar = lugar || "";
+          // fuerza placeholder en TODAS las celdas de formularios
+          alertante = PLACEHOLDER_CELL;
+          servicio  = PLACEHOLDER_CELL;
+          lugar     = PLACEHOLDER_CELL;
+          informe   = PLACEHOLDER_CELL;
+
+          intervinientes = new Set([PLACEHOLDER_CELL]);
+          materiales     = new Set([PLACEHOLDER_CELL]);
+
           finalizeActivation();
           return;
         }
         if(flow === "material"){
+          materiales = new Set([PLACEHOLDER_CELL]);
           finalizeFinalizacion();
           return;
         }
         if(flow === "informe"){
+          informe = PLACEHOLDER_CELL;
           finalizeDisponibles();
           return;
         }
       }
+
       modalFlow = flow;
       modalStep = 0;
       overlay.style.display = "flex";
       renderModalStep();
     }
+
     function closeModal(){
       overlay.style.display = "none";
       modalFlow = null;
@@ -678,27 +710,29 @@
       modalNext.onclick = null;
       modalBack.onclick = null;
     }
+
     function setModalNav(canBack, canNext){
       modalBack.style.display = canBack ? "inline-flex" : "none";
       modalNext.style.display = canNext ? "inline-flex" : "none";
     }
 
     function resetCycleDataForNewRun(){
-      alertante = "";
-      servicio = "—";
-      lugar = "";
-      informe = "";
-      intervinientes = new Set();
-      materiales = new Set();
+      alertante = PLACEHOLDER_CELL;
+      servicio = PLACEHOLDER_CELL;
+      lugar = PLACEHOLDER_CELL;
+      informe = PLACEHOLDER_CELL;
+
+      intervinientes = new Set([PLACEHOLDER_CELL]);
+      materiales = new Set([PLACEHOLDER_CELL]);
       pendingServicio = null;
 
       tA=tI=tF=tD=null;
       locA=locI=locF=locD=null;
 
-      tsA.textContent="—";
-      tsI.textContent="—";
-      tsF.textContent="—";
-      tsD.textContent="—";
+      tsA.textContent=PLACEHOLDER_CELL;
+      tsI.textContent=PLACEHOLDER_CELL;
+      tsF.textContent=PLACEHOLDER_CELL;
+      tsD.textContent=PLACEHOLDER_CELL;
     }
 
     const U = (s, max) => String(s ?? "").trim().toUpperCase().slice(0, max);
@@ -808,6 +842,8 @@
             c.onclick = () => {
               if(intervinientes.has(item.code)) intervinientes.delete(item.code);
               else intervinientes.add(item.code);
+              // si el user mete algo real, quita placeholder
+              if(intervinientes.size > 1 && intervinientes.has(PLACEHOLDER_CELL)) intervinientes.delete(PLACEHOLDER_CELL);
               c.classList.toggle("selected");
             };
             chips.appendChild(c);
@@ -840,6 +876,7 @@
           c.onclick = () => {
             if(materiales.has(name)) materiales.delete(name);
             else materiales.add(name);
+            if(materiales.size > 1 && materiales.has(PLACEHOLDER_CELL)) materiales.delete(PLACEHOLDER_CELL);
             c.classList.toggle("selected");
           };
           chips.appendChild(c);
@@ -914,7 +951,6 @@
         tA = Date.now();
         tsA.textContent = timestampES();
 
-        // VISOR
         __sendToVISOR("ACTIVACION", locA, headerTitleEl ? headerTitleEl.textContent : document.title);
 
         btnA.disabled = true;
@@ -930,7 +966,6 @@
         tI = Date.now();
         tsI.textContent = timestampES();
 
-        // VISOR
         __sendToVISOR("INTERVENCION", locI, headerTitleEl ? headerTitleEl.textContent : document.title);
 
         btnI.disabled = true;
@@ -950,7 +985,6 @@
         tF = Date.now();
         tsF.textContent = timestampES();
 
-        // VISOR
         __sendToVISOR("FINALIZACION", locF, headerTitleEl ? headerTitleEl.textContent : document.title);
 
         btnF.disabled = true;
@@ -966,7 +1000,6 @@
         tD = Date.now();
         tsD.textContent = timestampES();
 
-        // VISOR
         __sendToVISOR("DISPONIBLES", locD, headerTitleEl ? headerTitleEl.textContent : document.title);
 
         openModal("informe");
@@ -974,9 +1007,7 @@
     });
 
     function finalizeDisponibles(){
-      // (Antes: buildLogChartMap + habilitar panel) -> eliminado
       sendCycleToSheet();
-
       stopTimerAndReset();
       resetButtons();
     }
