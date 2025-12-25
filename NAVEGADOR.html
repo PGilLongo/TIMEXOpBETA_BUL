@@ -64,7 +64,7 @@
       white-space: nowrap;
     }
 
-    /* ===== BUSCADOR: AHORA ES LA PRIMERA FILA ===== */
+    /* ===== BUSCADOR (ahora es la primera fila del panel) ===== */
     .search-wrap{
       margin-top:0;
       display:flex;
@@ -168,7 +168,7 @@
       min-width:120px;
     }
 
-    /* ===== OCULTAR SIEMPRE SHEETS (NUNCA VISIBLE) ===== */
+    /* ===== Sheets NO visible nunca ===== */
     .sheet-wrap{ display:none !important; }
 
     .size-btn{
@@ -191,7 +191,7 @@
       align-items:center;
       justify-content: space-between;
       gap:10px;
-      margin-top: 8px; /* ahora va después del buscador */
+      margin-top: 8px;
     }
 
     .hud-header .row{ flex: 1 1 auto; }
@@ -207,7 +207,7 @@
       user-select: none;
     }
 
-    /* ===== MINIMIZADO: SOLO QUEDA VISIBLE search-wrap (buscador + quitar ruta) ===== */
+    /* ===== MINIMIZADO: solo visible search-wrap (buscador + quitar ruta) ===== */
     .hud.minimized{ padding: 8px 10px; }
     .hud.minimized .hud-header{ display:none; }
     .hud.minimized .hud-body{ display:none; }
@@ -270,7 +270,7 @@
 <body>
   <div class="hud" id="hud">
 
-    <!-- ===== PRIMERA FILA: BUSCADOR + QUITAR RUTA (único visible al minimizar) ===== -->
+    <!-- ===== PRIMERA FILA (siempre visible, incluso minimizado) ===== -->
     <div class="search-wrap">
       <input id="searchBox" type="search" placeholder="Buscar punto por nombre…" autocomplete="off" />
       <button id="clearRouteBtn" type="button" title="Quitar la ruta actual">Quitar ruta</button>
@@ -278,7 +278,6 @@
 
     <div id="results" aria-label="Resultados de búsqueda"></div>
 
-    <!-- ===== FILA DE CONTROLES (se oculta al minimizar) ===== -->
     <div class="hud-header">
       <div class="row">
         <button id="recenterBtn" type="button">Centrarme</button>
@@ -315,7 +314,7 @@
         <button id="meSizeUpBtn" type="button" class="size-btn" title="Icono ubicación más grande">+</button>
       </div>
 
-      <!-- Se mantiene por compatibilidad, pero queda oculto SIEMPRE por CSS (.sheet-wrap display:none !important) -->
+      <!-- Mantengo esto por compatibilidad (localStorage / envío), pero NO se verá nunca -->
       <div class="sheet-wrap">
         <input id="sheetsEndpoint" type="url" placeholder="URL WebApp Sheets…" inputmode="url" autocomplete="off" />
         <input id="sheetsToken" type="text" placeholder="Token Sheets…" autocomplete="off" />
@@ -381,9 +380,8 @@
       const poiIndex = [];
       const trackIndex = [];
 
-      // ===== ELIMINA EL +/− DE LEAFLET =====
+      // ✅ Elimina el control +/− de Leaflet
       const map = L.map("map", { zoomControl: false }).setView([40.4168, -3.7038], 6);
-
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
 
       // Wrapper para rotación del mapa sin interferir con los transforms internos de Leaflet
@@ -461,16 +459,13 @@
         hudToggleBtn.setAttribute("aria-label", min ? "Expandir panel" : "Minimizar panel");
         hudToggleBtn.title = min ? "Expandir / mostrar" : "Minimizar / ocultar";
         try { localStorage.setItem(LS_HUD_MIN_KEY, min ? "1" : "0"); } catch {}
-        if (min) setResultsVisible(false);
       };
 
-      // ===== EXPANDIR SIN MOSTRAR BOTÓN (doble clic / doble tap en el panel minimizado) =====
-      hudEl.addEventListener("dblclick", (ev) => {
-        if (hudEl.classList.contains("minimized")) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          setHudMinimized(false);
-        }
+      // ✅ Expandir si está minimizado tocando/clicando el fondo del panel (sin afectar input/botón)
+      hudEl.addEventListener("click", (e) => {
+        if (!hudEl.classList.contains("minimized")) return;
+        if (e.target === searchBox || e.target === clearRouteBtn) return;
+        setHudMinimized(false);
       });
 
       const openKmzDb = () => new Promise((resolve, reject) => {
@@ -1087,10 +1082,7 @@
 
       chooseFilesBtn.addEventListener("click", () => kmzInput.click());
 
-      clearRouteBtn.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        clearRoute();
-      });
+      clearRouteBtn.addEventListener("click", clearRoute);
 
       searchBox.addEventListener("input", doSearch);
       searchBox.addEventListener("focus", doSearch);
