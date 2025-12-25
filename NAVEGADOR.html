@@ -10,16 +10,22 @@
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; width: 100%; }
 
+    /* ===== HUD: 100% del top ===== */
     .hud{
-      transform: scale(.9);
-      transform-origin: top left;
       position: absolute;
       z-index: 9999;
-      top: 12px;
-      left: 12px;
+      top: 0;
+      left: 0;
+      right: 0;
+      width: 100%;
+      box-sizing: border-box;
+
+      transform: none;
+      transform-origin: top left;
+
       background: rgba(255,255,255,.92);
       padding: 10px 12px;
-      border-radius: 10px;
+      border-radius: 0 0 12px 12px;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
       font-size: 12px;
       box-shadow: 0 6px 18px rgba(0,0,0,.15);
@@ -64,33 +70,40 @@
       white-space: nowrap;
     }
 
-    .search-wrap{
-      margin-top:8px;
-      display:flex;
-      gap:8px;
-      align-items:center;
-      flex-wrap: wrap;
+    /* ===== HUD minimizado/expandible =====
+       - Minimizado: SOLO buscador visible
+       - Expandir: tocando el buscador (sin botones extra visibles)
+    */
+    .hud.minimized .hud-header{ display:none !important; }
+    .hud.minimized .hud-body{ display:none !important; }
+
+    /* El bloque de buscador siempre visible */
+    .hud-search{ margin-top: 8px; display:flex; flex-direction: column; gap:6px; }
+    .hud.minimized .hud-search{ margin-top: 0; }
+
+    /* En móvil, aprovechar el ancho completo */
+    .hud .search-wrap{ display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
+    .hud #searchBox{ width: 520px; max-width: 100%; box-sizing: border-box; }
+    @media (max-width: 720px){
+      .hud #searchBox{ width: 100%; }
     }
 
     #searchBox{
-      width: 260px;
-      max-width: 70vw;
-      padding: 4px 8px;
-      border-radius: 8px;
+      padding: 6px 10px;
+      border-radius: 10px;
       border: 1px solid rgba(0,0,0,.25);
-      font-size: 11.5px;
+      font-size: 12px;
       outline: none;
     }
 
     #clearRouteBtn{
-      padding: 4px 8px;
-      border-radius: 8px;
+      padding: 6px 10px;
+      border-radius: 10px;
       border: 1px solid rgba(0,0,0,.25);
       background: #fff;
     }
 
     #results{
-      margin-top:6px;
       max-height: 220px;
       overflow:auto;
       border: 1px solid rgba(0,0,0,.15);
@@ -152,6 +165,7 @@
       align-items:center;
       flex-wrap: wrap;
     }
+
     .sheet-wrap{
       margin-top:6px;
       display:none; /* Ocultar la sección de Sheets */
@@ -200,9 +214,6 @@
       cursor: pointer;
       user-select: none;
     }
-
-    .hud.minimized{ padding: 8px 10px; }
-    .hud.minimized .hud-body{ display:none; }
 
     .leaflet-marker-icon.kmz-img-icon,
     .leaflet-marker-icon.me-img-icon{
@@ -254,51 +265,18 @@
       transform: rotate(var(--map-rot, 0deg)) scale(var(--map-scale, 1));
     }
 
-    /* ====== CAMBIO: transición para que rotación/escala acompañen al zoom ====== */
     .map-rotator{
       position:absolute;
       inset:0;
       transform-origin:50% 50%;
       will-change:transform;
       transition: transform 180ms ease-out;
+      pointer-events: auto; /* permite interactuar con controles */
     }
 
     #map.is-zooming .map-rotator{
       transition-duration: 260ms;
       transition-timing-function: cubic-bezier(.2,.8,.2,1);
-    }
-
-    /* Asegura que los primeros elementos (buscador y quitar ruta) estén visibles cuando el HUD esté minimizado */
-    .hud-body {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .hud-body .search-wrap,
-    .hud-body .search-wrap button {
-      position: relative;
-      z-index: 100; /* Asegura que el buscador y el botón estén siempre arriba */
-    }
-
-    /* Modifica la clase minimizada para mantener visibles los elementos clave */
-    .hud.minimized .hud-body {
-      display: block;
-    }
-
-    /* Añadir margen en el HUD minimizado para que se vea el buscador y el botón */
-    .hud.minimized .search-wrap {
-      margin-bottom: 10px;
-    }
-
-    .hud.minimized #results {
-      display: block !important; /* Asegura que los resultados estén visibles incluso cuando el HUD esté minimizado */
-    }
-
-    /* Mostrar el resto del contenido dentro del HUD minimizado, pero a una escala más pequeña */
-    .hud.minimized .icon-wrap,
-    .hud.minimized .me-icon-wrap,
-    .hud.minimized .sheet-wrap {
-      display: none;
     }
   </style>
 </head>
@@ -320,16 +298,15 @@
       <button id="hudToggleBtn" class="hud-toggle" type="button" aria-label="Minimizar panel" title="Minimizar / expandir">▾</button>
     </div>
 
-    <div class="hud-body">
-      <!-- Coloca primero el buscador y el botón de quitar ruta -->
+    <div class="hud-search">
       <div class="search-wrap">
         <input id="searchBox" type="search" placeholder="Buscar punto por nombre…" autocomplete="off" />
         <button id="clearRouteBtn" type="button" title="Quitar la ruta actual">Quitar ruta</button>
       </div>
-
-      <!-- Luego los demás elementos del HUD -->
       <div id="results" aria-label="Resultados de búsqueda"></div>
+    </div>
 
+    <div class="hud-body">
       <div class="icon-wrap">
         <select id="kmzSelect" title="Selecciona el KMZ al que aplicar el icono" disabled>
           <option value="">KMZ: (ninguno)</option>
@@ -349,7 +326,6 @@
         <button id="meSizeUpBtn" type="button" class="size-btn" title="Icono ubicación más grande">+</button>
       </div>
 
-      <!-- Ocultamos la sección de Sheets -->
       <div class="sheet-wrap">
         <input id="sheetsEndpoint" type="url" placeholder="URL WebApp Sheets…" inputmode="url" autocomplete="off" />
         <input id="sheetsToken" type="text" placeholder="Token Sheets…" autocomplete="off" />
@@ -380,6 +356,7 @@
       const chooseFilesBtn = $("chooseFilesBtn");
       const hudEl = $("hud");
       const hudToggleBtn = $("hudToggleBtn");
+      const hudSearchEl = document.querySelector(".hud-search");
 
       const searchBox = $("searchBox");
       const resultsEl = $("results");
@@ -415,7 +392,7 @@
       const poiIndex = [];
       const trackIndex = [];
 
-      /* ===== CAMBIO: zoom control abajo-izquierda ===== */
+      /* ===== zoom control abajo-izquierda ===== */
       const map = L.map("map", { zoomControl: false }).setView([40.4168, -3.7038], 6);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
       L.control.zoom({ position: "bottomleft" }).addTo(map);
@@ -423,27 +400,25 @@
       const mapEl = $("map");
 
       // === Sincronizar transición de rotación/escala con zoom ===
-      map.on("zoomstart", () => {
-        mapEl.classList.add("is-zooming");
-      });
-      map.on("zoomend", () => {
-        mapEl.classList.remove("is-zooming");
-      });
+      map.on("zoomstart", () => { mapEl.classList.add("is-zooming"); });
+      map.on("zoomend",   () => { mapEl.classList.remove("is-zooming"); });
 
-      // Wrapper para rotación del mapa sin interferir con los transforms internos de Leaflet
-      const mapRotWrap = (() => {
-        try {
-          const container = map.getContainer();
-          const pane = map.getPane("mapPane");
-          if (!container || !pane || pane.parentElement?.classList?.contains("map-rotator")) {
-            const wrap = document.createElement("div");
-            wrap.className = "map-rotator";
-            pane.parentElement?.insertBefore(wrap, pane);
-            wrap.appendChild(pane);
-            return wrap;
-          }
-          return pane.parentElement;
-        } catch { return null; }
+      // Wrapper robusto para rotación del mapa (pane + controles)
+      (function ensureMapRotator(){
+        const container = map.getContainer();
+        if (!container) return;
+        let rot = container.querySelector(":scope > .map-rotator");
+        const pane = container.querySelector(":scope > .leaflet-pane");
+        const ctrl = container.querySelector(":scope > .leaflet-control-container");
+        if (!pane || !ctrl) return;
+
+        if (!rot){
+          rot = document.createElement("div");
+          rot.className = "map-rotator";
+          container.insertBefore(rot, pane);
+        }
+        if (pane.parentElement !== rot) rot.appendChild(pane);
+        if (ctrl.parentElement !== rot) rot.appendChild(ctrl);
       })();
 
       const overlays = {};
@@ -1116,6 +1091,15 @@
         ev.preventDefault();
         ev.stopPropagation();
         setHudMinimized(!hudEl.classList.contains("minimized"));
+      });
+
+      // Expandir tocando el buscador cuando el HUD esté minimizado
+      hudSearchEl?.addEventListener("click", (ev) => {
+        if (hudEl.classList.contains("minimized")) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          setHudMinimized(false);
+        }
       });
 
       chooseFilesBtn.addEventListener("click", () => kmzInput.click());
