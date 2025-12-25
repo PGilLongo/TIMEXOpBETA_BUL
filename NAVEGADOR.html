@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- :contentReference[oaicite:0]{index=0} -->
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -7,260 +8,375 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    html, body { height: 100%; margin: 0; }
-    #map { height: 100%; width: 100%; }
+    :root{
+      --w95-bg:#C0C0C0;
+      --w95-face:#C0C0C0;
+      --w95-highlight:#FFFFFF;
+      --w95-shadow:#808080;
+      --w95-dark:#000000;
+      --w95-title:#000080;
+      --w95-title2:#1084d0;
+      --w95-text:#000;
+      --w95-link:#0000EE;
+      --w95-focus:#000080;
+    }
 
-    /* ===== HUD: 100% del top ===== */
+    html, body { height: 100%; margin: 0; background:#000080; }
+    #map { height: 100%; width: 100%; --hud-h: 0px; background:#000080; }
+
     .hud{
-      position: absolute;
-      z-index: 9999;
-      top: 0;
-      left: 0;
-      right: 0;
-      width: 100%;
-      box-sizing: border-box;
+      position:absolute;
+      z-index:9999;
+      top:10px; left:10px;
+      width:min(980px, calc(100% - 20px));
+      box-sizing:border-box;
+      background: var(--w95-face);
+      color: var(--w95-text);
+      font-family: "MS Sans Serif", Tahoma, Arial, system-ui, -apple-system, Segoe UI, Roboto;
+      font-size:12px;
+      border:2px solid var(--w95-dark);
+      box-shadow:
+        inset 1px 1px 0 var(--w95-highlight),
+        inset -1px -1px 0 var(--w95-shadow),
+        0 10px 30px rgba(0,0,0,.35);
+      border-radius:0;
+      padding:0;
+    }
 
-      transform: none;
-      transform-origin: top left;
+    .hud *{ box-sizing:border-box; }
 
-      background: rgba(255,255,255,.92);
-      padding: 10px 12px;
-      border-radius: 0 0 12px 12px;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      font-size: 12px;
-      box-shadow: 0 6px 18px rgba(0,0,0,.15);
+    .hud-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding:2px 4px;
+      background: linear-gradient(90deg, var(--w95-title) 0%, var(--w95-title2) 60%, var(--w95-title) 100%);
+      color:#fff;
+      user-select:none;
+    }
+
+    .hud-header .row{
+      flex:1 1 auto;
+      display:flex;
+      gap:6px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .hud-search{
+      padding:8px 8px 0;
+      background: var(--w95-face);
+      border-top:2px solid var(--w95-dark);
+      box-shadow:
+        inset 1px 1px 0 var(--w95-highlight),
+        inset -1px -1px 0 var(--w95-shadow);
+    }
+
+    .hud-body{
+      padding:8px 8px 10px;
+      background: var(--w95-face);
+      border-top:2px solid var(--w95-dark);
+      box-shadow:
+        inset 1px 1px 0 var(--w95-highlight),
+        inset -1px -1px 0 var(--w95-shadow);
     }
 
     .row{
       display:flex;
-      gap:8px;
+      gap:6px;
       align-items:center;
-      flex-wrap: nowrap;
-      white-space: nowrap;
-    }
-
-    button{ cursor:pointer; font-size: 11.5px; }
-
-    .file-btn{
-      display:inline-flex;
-      align-items:center;
-      padding: 2px 10px;
-      border: 1px solid rgba(0,0,0,.25);
-      border-radius: 6px;
-      background: #fff;
-      cursor: pointer;
-      user-select: none;
-      font-size: 11.5px;
-      line-height: 24px;
-      white-space: nowrap;
-    }
-
-    #kmzFile{ display:none; }
-
-    .leaflet-control-layers{
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      font-size: 12px;
-      border-radius: 10px;
+      flex-wrap:wrap;
+      white-space:nowrap;
     }
 
     .follow{
       display:flex;
       align-items:center;
       gap:4px;
-      white-space: nowrap;
+      white-space:nowrap;
+      background:transparent;
+      color:#fff;
+      padding:2px 4px;
+      border:1px solid rgba(255,255,255,.35);
     }
 
-    /* ===== HUD minimizado/expandible =====
-       - Minimizado: SOLO buscador visible
-       - Expandir: tocando el buscador (sin botones extra visibles)
-    */
-    .hud.minimized .hud-header{ display:none !important; }
+    .file-btn{
+      display:inline-flex;
+      align-items:center;
+      padding:0 8px;
+      border:2px solid var(--w95-dark);
+      background: var(--w95-face);
+      cursor:pointer;
+      user-select:none;
+      font-size:12px;
+      line-height:20px;
+      white-space:nowrap;
+      box-shadow:
+        inset 1px 1px 0 var(--w95-highlight),
+        inset -1px -1px 0 var(--w95-shadow);
+      color:var(--w95-text);
+    }
+
+    #kmzFile{ display:none; }
+
+    button, .file-btn, select, input{
+      font-family: "MS Sans Serif", Tahoma, Arial, system-ui, -apple-system, Segoe UI, Roboto;
+      font-size:12px;
+    }
+
+    button{
+      cursor:pointer;
+      padding:0 8px;
+      line-height:20px;
+      border:2px solid var(--w95-dark);
+      background: var(--w95-face);
+      box-shadow:
+        inset 1px 1px 0 var(--w95-highlight),
+        inset -1px -1px 0 var(--w95-shadow);
+      color:var(--w95-text);
+    }
+
+    button:active{
+      box-shadow:
+        inset 1px 1px 0 var(--w95-shadow),
+        inset -1px -1px 0 var(--w95-highlight);
+    }
+
+    button:focus-visible, input:focus-visible, select:focus-visible{
+      outline:1px dotted var(--w95-focus);
+      outline-offset:-3px;
+    }
+
+    input[type="checkbox"]{
+      width:13px; height:13px;
+      accent-color: var(--w95-title2);
+    }
+
+    .hud-toggle{
+      width:22px;
+      min-width:22px;
+      height:18px;
+      padding:0;
+      border:2px solid #fff;
+      background: var(--w95-face);
+      box-shadow:
+        inset 1px 1px 0 var(--w95-highlight),
+        inset -1px -1px 0 var(--w95-shadow);
+      color:#000;
+      font-size:12px;
+      line-height:14px;
+      cursor:pointer;
+      user-select:none;
+    }
+
     .hud.minimized .hud-body{ display:none !important; }
+    .hud.minimized .hud-search{ display:block !important; }
+    .hud.minimized #results{ display:none !important; }
 
-    /* El bloque de buscador siempre visible */
-    .hud-search{ margin-top: 8px; display:flex; flex-direction: column; gap:6px; }
-    .hud.minimized .hud-search{ margin-top: 0; }
-
-    /* En móvil, aprovechar el ancho completo */
-    .hud .search-wrap{ display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
-    .hud #searchBox{ width: 520px; max-width: 100%; box-sizing: border-box; }
-    @media (max-width: 720px){
-      .hud #searchBox{ width: 100%; }
-    }
+    .hud .search-wrap{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .hud #searchBox{ width:520px; max-width:100%; }
 
     #searchBox{
-      padding: 6px 10px;
-      border-radius: 10px;
-      border: 1px solid rgba(0,0,0,.25);
-      font-size: 12px;
-      outline: none;
+      padding:2px 6px;
+      border:2px solid var(--w95-dark);
+      background:#fff;
+      line-height:18px;
+      box-shadow:
+        inset 1px 1px 0 var(--w95-shadow),
+        inset -1px -1px 0 var(--w95-highlight);
+      outline:none;
     }
 
     #clearRouteBtn{
-      padding: 6px 10px;
-      border-radius: 10px;
-      border: 1px solid rgba(0,0,0,.25);
-      background: #fff;
+      padding:0 8px;
+      line-height:20px;
     }
 
     #results{
-      max-height: 220px;
+      margin-top:6px;
+      max-height:220px;
       overflow:auto;
-      border: 1px solid rgba(0,0,0,.15);
-      border-radius: 10px;
-      background: rgba(255,255,255,.98);
+      border:2px solid var(--w95-dark);
+      background:#fff;
+      box-shadow:
+        inset 1px 1px 0 var(--w95-shadow),
+        inset -1px -1px 0 var(--w95-highlight);
       display:none;
     }
 
     .result-item{
-      padding: 8px 10px;
+      padding:6px 8px;
       cursor:pointer;
-      border-bottom: 1px solid rgba(0,0,0,.06);
-      font-size: 11.5px;
+      border-bottom:1px solid rgba(0,0,0,.1);
+      font-size:12px;
     }
 
-    .result-item:last-child{ border-bottom: none; }
-    .result-item:hover{ background: rgba(0,0,0,.04); }
-    .muted{ color: rgba(0,0,0,.6); font-size: 12px; }
+    .result-item:last-child{ border-bottom:none; }
+    .result-item:hover{ background: #e8f0ff; }
+    .muted{ color: rgba(0,0,0,.65); font-size:12px; }
 
     .icon-wrap{
-      margin-top:8px;
       display:flex;
-      gap:8px;
+      gap:6px;
       align-items:center;
-      flex-wrap: wrap;
+      flex-wrap:wrap;
     }
 
     #kmzSelect{
-      max-width: 46vw;
-      padding: 4px 8px;
-      border-radius: 8px;
-      border: 1px solid rgba(0,0,0,.25);
+      max-width:46vw;
+      padding:1px 6px;
+      border:2px solid var(--w95-dark);
       background:#fff;
-      font-size: 11.5px;
+      line-height:18px;
+      box-shadow:
+        inset 1px 1px 0 var(--w95-shadow),
+        inset -1px -1px 0 var(--w95-highlight);
     }
 
-    #iconUrl,
-    #meIconUrl{
-      width: 320px;
-      max-width: 70vw;
-      padding: 4px 8px;
-      border-radius: 8px;
-      border: 1px solid rgba(0,0,0,.25);
-      font-size: 11.5px;
-      outline: none;
+    #iconUrl, #meIconUrl, #sheetsEndpoint, #sheetsToken{
+      padding:2px 6px;
+      border:2px solid var(--w95-dark);
+      background:#fff;
+      line-height:18px;
+      box-shadow:
+        inset 1px 1px 0 var(--w95-shadow),
+        inset -1px -1px 0 var(--w95-highlight);
+      outline:none;
     }
 
-    #applyIconBtn, #resetIconBtn, #applyMeIconBtn{
-      padding: 4px 8px;
-      border-radius: 8px;
-      border: 1px solid rgba(0,0,0,.25);
-      background: #fff;
-    }
+    #iconUrl, #meIconUrl{ width:320px; max-width:70vw; }
+    #applyIconBtn, #resetIconBtn, #applyMeIconBtn{ padding:0 8px; }
+    #deleteKmzBtn{ padding:0 8px; }
 
     .me-icon-wrap{
       margin-top:6px;
       display:flex;
       gap:6px;
       align-items:center;
-      flex-wrap: wrap;
+      flex-wrap:wrap;
     }
 
     .sheet-wrap{
       margin-top:6px;
-      display:none; /* Ocultar la sección de Sheets */
+      display:none;
       gap:6px;
       align-items:center;
       flex-wrap:wrap;
     }
+
     .sheet-wrap input{ flex: 1 1 240px; }
-    .sheet-wrap .status{
-      font-size:12px;
-      opacity:.85;
-      min-width:120px;
-    }
+    .sheet-wrap .status{ font-size:12px; opacity:.85; min-width:120px; }
 
     .size-btn{
-      padding: 4px 8px;
-      border-radius: 6px;
-      border: 1px solid rgba(0,0,0,.25);
-      background: #fff;
-      cursor: pointer;
-      font-size: 16px;
-      line-height: 16px;
+      width:26px;
+      padding:0;
+      border:2px solid var(--w95-dark);
+      background: var(--w95-face);
+      box-shadow:
+        inset 1px 1px 0 var(--w95-highlight),
+        inset -1px -1px 0 var(--w95-shadow);
+      cursor:pointer;
+      font-size:16px;
+      line-height:20px;
+      height:22px;
     }
 
-    .kmz-img-icon{
-      border-radius: 50%;
-      overflow: hidden;
+    .leaflet-control-zoom, .leaflet-control-layers{
+      border-radius:0 !important;
+      border:2px solid var(--w95-dark) !important;
+      background: var(--w95-face) !important;
+      box-shadow:
+        inset 1px 1px 0 var(--w95-highlight),
+        inset -1px -1px 0 var(--w95-shadow) !important;
+      font-family: "MS Sans Serif", Tahoma, Arial, system-ui, -apple-system, Segoe UI, Roboto !important;
+      font-size:12px !important;
     }
 
-    .hud-header{
-      display:flex;
-      align-items:center;
-      justify-content: space-between;
-      gap:10px;
+    .leaflet-control-layers-toggle{
+      filter: grayscale(100%) contrast(120%);
     }
 
-    .hud-header .row{ flex: 1 1 auto; }
-
-    .hud-toggle{
-      border: 1px solid rgba(0,0,0,.25);
-      background: #fff;
-      border-radius: 8px;
-      padding: 2px 8px;
-      font-size: 14px;
-      line-height: 18px;
-      cursor: pointer;
-      user-select: none;
+    .leaflet-control-layers-expanded{
+      padding:6px 8px !important;
     }
+
+    .leaflet-control-zoom a{
+      border-radius:0 !important;
+      border:2px solid var(--w95-dark) !important;
+      background: var(--w95-face) !important;
+      box-shadow:
+        inset 1px 1px 0 var(--w95-highlight),
+        inset -1px -1px 0 var(--w95-shadow) !important;
+      color:#000 !important;
+      font-weight:700;
+    }
+
+    .leaflet-control-zoom a:active{
+      box-shadow:
+        inset 1px 1px 0 var(--w95-shadow),
+        inset -1px -1px 0 var(--w95-highlight) !important;
+    }
+
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip{
+      border-radius:0 !important;
+      border:2px solid var(--w95-dark) !important;
+      background:#fff !important;
+      box-shadow:
+        inset 1px 1px 0 var(--w95-shadow),
+        inset -1px -1px 0 var(--w95-highlight),
+        0 8px 18px rgba(0,0,0,.25) !important;
+      font-family: "MS Sans Serif", Tahoma, Arial, system-ui, -apple-system, Segoe UI, Roboto !important;
+      font-size:12px !important;
+    }
+
+    .leaflet-container a{ color: var(--w95-link) !important; }
 
     .leaflet-marker-icon.kmz-img-icon,
     .leaflet-marker-icon.me-img-icon{
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
+      background:transparent !important;
+      border:none !important;
+      box-shadow:none !important;
     }
 
-    /* ====== ICONO DE MI UBICACIÓN FIJO (NO ROTA) ====== */
+    .kmz-img-icon{ border-radius:50%; overflow:hidden; }
+
     .me-static-wrap{
-      position: relative;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
+      position:relative;
+      width:100%;
+      height:100%;
+      pointer-events:none;
     }
 
     .me-static-dot{
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 14px;
-      height: 14px;
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:14px;
+      height:14px;
       transform: translate(-50%, -50%);
-      border-radius: 50%;
-      background: #2b6cff;
-      border: 3px solid #fff;
-      box-shadow: 0 2px 10px rgba(0,0,0,.35);
+      border-radius:50%;
+      background:#2b6cff;
+      border:3px solid #fff;
+      box-shadow:0 2px 10px rgba(0,0,0,.35);
     }
 
     .me-static-img{
-      position: absolute;
-      left: 50%;
-      top: 50%;
+      position:absolute;
+      left:50%;
+      top:50%;
       transform: translate(-50%, -50%);
-      border-radius: 50%;
-      overflow: hidden;
-      background: transparent;
+      border-radius:50%;
+      overflow:hidden;
+      background:transparent;
+      border:2px solid #fff;
+      box-shadow:0 2px 10px rgba(0,0,0,.35);
     }
 
-    .me-static-img img{ display:block; background: transparent; }
+    .me-static-img img{ display:block; background:transparent; }
 
-    /* ====== ROTACIÓN DEL MAPA ======
-       CAMBIO: NO rotar el contenedor de controles (incluida la barra inferior/atribución).
-       Solo rota el pane del mapa (tiles/overlays). */
-    #map .leaflet-pane{
-      transform-origin: 50% 50%;
-    }
+    #map .leaflet-pane{ transform-origin:50% 50%; }
 
     #map.rotate .map-rotator{
       transform: rotate(var(--map-rot, 0deg)) scale(var(--map-scale, 1));
@@ -272,12 +388,25 @@
       transform-origin:50% 50%;
       will-change:transform;
       transition: transform 180ms ease-out;
-      pointer-events: auto; /* el pane sigue siendo interactivo */
+      pointer-events:auto;
     }
 
     #map.is-zooming .map-rotator{
-      transition-duration: 260ms;
+      transition-duration:260ms;
       transition-timing-function: cubic-bezier(.2,.8,.2,1);
+    }
+
+    #map .leaflet-top.leaflet-left{
+      top: var(--hud-h, 0px) !important;
+      left: 8px !important;
+    }
+
+    @media (max-width:720px){
+      .hud{ left:10px; right:10px; width:auto; }
+      .hud #searchBox{ width:100%; }
+      #iconUrl, #meIconUrl{ width:100%; max-width:100%; }
+      #kmzSelect{ max-width:100%; }
+      .follow{ color:#fff; }
     }
   </style>
 </head>
@@ -285,15 +414,15 @@
   <div class="hud" id="hud">
     <div class="hud-header">
       <div class="row">
-        <button id="recenterBtn" type="button">Centrarme</button>
-        <button id="fitAllBtn" type="button">Ver todo</button>
+        <button id="recenterBtn" type="button" title="Centrarme">Centrarme</button>
+        <button id="fitAllBtn" type="button" title="Ver todo">Ver todo</button>
 
-        <label class="follow">
+        <label class="follow" title="Seguir tu posición">
           <input id="followChk" type="checkbox" checked />
           seguirme
         </label>
 
-        <button id="chooseFilesBtn" type="button" class="file-btn">Elegir archivos</button>
+        <button id="chooseFilesBtn" type="button" class="file-btn" title="Cargar KMZ">Elegir archivos</button>
       </div>
 
       <button id="hudToggleBtn" class="hud-toggle" type="button" aria-label="Minimizar panel" title="Minimizar / expandir">▾</button>
@@ -350,14 +479,15 @@
 
       const $ = (id) => document.getElementById(id);
 
-      const followChk = $("followChk");
-      const recenterBtn = $("recenterBtn");
-      const fitAllBtn = $("fitAllBtn");
-      const kmzInput = $("kmzFile");
-      const chooseFilesBtn = $("chooseFilesBtn");
       const hudEl = $("hud");
       const hudToggleBtn = $("hudToggleBtn");
       const hudSearchEl = document.querySelector(".hud-search");
+
+      const followChk = $("followChk");
+      const recenterBtn = $("recenterBtn");
+      const fitAllBtn = $("fitAllBtn");
+      const chooseFilesBtn = $("chooseFilesBtn");
+      const kmzInput = $("kmzFile");
 
       const searchBox = $("searchBox");
       const resultsEl = $("results");
@@ -373,27 +503,28 @@
 
       const meIconUrlInput = $("meIconUrl");
       const applyMeIconBtn = $("applyMeIconBtn");
+      const meSizeUpBtn = $("meSizeUpBtn");
+      const meSizeDownBtn = $("meSizeDownBtn");
+
       const sheetsEndpointInput = $("sheetsEndpoint");
       const sheetsTokenInput = $("sheetsToken");
       const saveSheetsBtn = $("saveSheetsBtn");
       const sheetsStatusEl = $("sheetsStatus");
 
-      const meSizeUpBtn = $("meSizeUpBtn");
-      const meSizeDownBtn = $("meSizeDownBtn");
-
       const KMZ_DB_NAME = "kmz_navegador_db";
       const KMZ_DB_VERSION = 1;
       const KMZ_STORE = "kmzFiles";
+
       const LS_KMZ_META_KEY = "kmz_meta_v1";
       const LS_ME_ICON_KEY = "me_icon_v1";
       const LS_SHEETS_KEY = "sheets_push_v1";
       const LS_HUD_MIN_KEY = "hud_minimized_v1";
+
       const DEFAULT_SHEETS_ENDPOINT = "https://script.google.com/macros/s/AKfycbyVoOiNjza3_21FpJ1C8gQeHahU_l_-8-5kBfxtjNVP3xAsrld38cakJvhOwkUZ-jH9zQ/exec";
 
       const poiIndex = [];
       const trackIndex = [];
 
-      /* ===== MAPA BASE "NAVEGADOR" (COLORES) SIN ETIQUETAS + SIN CONTROL ZOOM +/- ===== */
       const map = L.map("map", { zoomControl: false }).setView([40.4168, -3.7038], 6);
 
       L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png", {
@@ -404,28 +535,37 @@
 
       const mapEl = $("map");
 
-      // === Sincronizar transición de rotación/escala con zoom ===
-      map.on("zoomstart", () => { mapEl.classList.add("is-zooming"); });
-      map.on("zoomend",   () => { mapEl.classList.remove("is-zooming"); });
+      const updateHudOffset = () => {
+        try {
+          const r = hudEl.getBoundingClientRect();
+          const h = Math.max(0, Math.ceil(r.height));
+          mapEl.style.setProperty("--hud-h", `${h + 8}px`);
+        } catch {}
+      };
 
-      // Wrapper robusto para rotación del mapa (SOLO EL PANE DEL MAPA, NO LOS CONTROLES)
-      (function ensureMapRotator(){
+      map.on("zoomstart", () => { mapEl.classList.add("is-zooming"); });
+      map.on("zoomend", () => { mapEl.classList.remove("is-zooming"); });
+
+      const ensureMapRotator = () => {
         const container = map.getContainer();
         if (!container) return;
-        let rot = container.querySelector(":scope > .map-rotator");
+
         const pane = container.querySelector(":scope > .leaflet-pane");
         if (!pane) return;
 
-        if (!rot){
+        let rot = container.querySelector(":scope > .map-rotator");
+        if (!rot) {
           rot = document.createElement("div");
           rot.className = "map-rotator";
           container.insertBefore(rot, pane);
         }
         if (pane.parentElement !== rot) rot.appendChild(pane);
-      })();
+      };
+      ensureMapRotator();
 
       const overlays = {};
-      const layersControl = L.control.layers({}, overlays, { collapsed: false }).addTo(map);
+      const layersControl = L.control.layers({}, overlays, { collapsed: false, position: "topleft" }).addTo(map);
+
       const kmzLayersList = [];
       let kmzCounter = 1;
 
@@ -435,31 +575,14 @@
       let prevLatLng = null;
       let lastBearing = NaN;
       let compassBearing = NaN;
+
       const posHistory = [];
-      const MAX_HISTORY_MS = 12000; // para calcular rumbo estable
+      const MAX_HISTORY_MS = 12000;
 
       let firstFix = true;
 
       let meIconUrl = "";
       let meIconSize = 14;
-
-      // Rumbo por brújula (DeviceOrientation) como fallback
-      (function initCompass() {
-        const handler = (ev) => {
-          let hd = NaN;
-          if (typeof ev.webkitCompassHeading === "number" && isFinite(ev.webkitCompassHeading)) {
-            hd = ev.webkitCompassHeading;
-          } else if (typeof ev.alpha === "number" && isFinite(ev.alpha)) {
-            if (ev.absolute === true) hd = (360 - ev.alpha) % 360;
-          }
-          if (typeof hd === "number" && isFinite(hd)) compassBearing = hd;
-        };
-
-        try {
-          window.addEventListener("deviceorientationabsolute", handler, { passive: true });
-          window.addEventListener("deviceorientation", handler, { passive: true });
-        } catch {}
-      })();
 
       let trackGuideLine = null;
       let trackGuideState = null;
@@ -468,20 +591,23 @@
       let mapRotTarget = 0;
       let mapRotRaf = 0;
 
+      const JOIN_EPS_METERS = 2.5;
+
       const safeJsonParse = (str, fallback) => {
         try { return JSON.parse(str); } catch { return fallback; }
       };
 
       const normalize = (s) => (s ?? "").toString().trim();
-
       const setResultsVisible = (v) => { resultsEl.style.display = v ? "block" : "none"; };
 
       const setHudMinimized = (min) => {
-        hudEl.classList.toggle("minimized", !!min);
-        hudToggleBtn.textContent = min ? "▸" : "▾";
-        hudToggleBtn.setAttribute("aria-label", min ? "Expandir panel" : "Minimizar panel");
-        hudToggleBtn.title = min ? "Expandir / mostrar" : "Minimizar / ocultar";
-        try { localStorage.setItem(LS_HUD_MIN_KEY, min ? "1" : "0"); } catch {}
+        const v = !!min;
+        hudEl.classList.toggle("minimized", v);
+        hudToggleBtn.textContent = v ? "▸" : "▾";
+        hudToggleBtn.setAttribute("aria-label", v ? "Expandir panel" : "Minimizar panel");
+        hudToggleBtn.title = v ? "Expandir / mostrar" : "Minimizar / ocultar";
+        try { localStorage.setItem(LS_HUD_MIN_KEY, v ? "1" : "0"); } catch {}
+        updateHudOffset();
       };
 
       const openKmzDb = () => new Promise((resolve, reject) => {
@@ -569,7 +695,9 @@
         sheetsStatusEl.textContent = msg || "";
         if (msg) {
           clearTimeout(setSheetsStatus._t);
-          setSheetsStatus._t = setTimeout(() => { if (sheetsStatusEl.textContent === msg) sheetsStatusEl.textContent = ""; }, 2500);
+          setSheetsStatus._t = setTimeout(() => {
+            if (sheetsStatusEl.textContent === msg) sheetsStatusEl.textContent = "";
+          }, 2500);
         }
       };
 
@@ -580,17 +708,13 @@
         lastSheetsSend = now;
 
         const payload = { token: sheetsToken, lat, lng, acc: acc || 0, ts: ts || now };
-
         fetch(sheetsEndpoint, {
           method: "POST",
           mode: "no-cors",
           body: JSON.stringify(payload),
           keepalive: true
-        }).then(() => {
-          setSheetsStatus("Enviado");
-        }).catch(() => {
-          setSheetsStatus("Error envío");
-        });
+        }).then(() => setSheetsStatus("Enviado"))
+          .catch(() => setSheetsStatus("Error envío"));
       };
 
       const kmzColorForIndex = (i) => `hsl(${(i * 137.508) % 360} 85% 50%)`;
@@ -614,7 +738,6 @@
         className: "kmz-img-icon"
       });
 
-      /* ===== CAMBIO CLAVE: icono de mi ubicación FIJO (no rota) ===== */
       const makeMeStaticIcon = (url, size) => {
         const s = Math.max(10, Math.min(96, Math.round(size || 14)));
         const imgHtml = url
@@ -672,8 +795,7 @@
         const y = Math.sin(Δλ) * Math.cos(φ2);
         const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
         const θ = Math.atan2(y, x);
-        const brng = (toDeg(θ) + 360) % 360;
-        return brng;
+        return (toDeg(θ) + 360) % 360;
       };
 
       const clearRoute = () => {
@@ -685,6 +807,7 @@
       };
 
       const proj = (ll) => map.options.crs.project(ll);
+      const projPt = (ll) => map.options.crs.project(ll);
 
       const closestPointOnSegment = (P, A, B) => {
         const abx = B.x - A.x, aby = B.y - A.y;
@@ -699,46 +822,276 @@
         if (!latlngs || latlngs.length < 2) return null;
         const P = proj(targetLatLng);
         let best = null;
+
         for (let i = 0; i < latlngs.length - 1; i++) {
           const A = proj(latlngs[i]);
           const B = proj(latlngs[i + 1]);
           const cp = closestPointOnSegment(P, A, B);
           const dx = P.x - cp.x, dy = P.y - cp.y;
-          const d = Math.hypot(dx, dy);
-          if (!best || d < best.d) best = { i, t: cp.t, x: cp.x, y: cp.y, d };
+          const dproj = Math.hypot(dx, dy);
+          if (!best || dproj < best.dproj) best = { i, t: cp.t, x: cp.x, y: cp.y, dproj };
         }
+
         if (!best) return null;
         const ll = map.options.crs.unproject(L.point(best.x, best.y));
-        return { idx: best.i, t: best.t, closestLatLng: ll, distMeters: best.d };
+        const dMeters = targetLatLng.distanceTo(ll);
+        return { idx: best.i, t: best.t, closestLatLng: ll, distMeters: dMeters };
       };
 
-      const extractSubPolyline = (latlngs, a, b) => {
+      const isClosedLoop = (latlngs) => {
+        if (!latlngs || latlngs.length < 4) return false;
+        const a = latlngs[0];
+        const b = latlngs[latlngs.length - 1];
+        return a && b && a.distanceTo(b) <= 2.5;
+      };
+
+      const buildCumulative = (latlngs) => {
+        const cum = new Array(latlngs.length).fill(0);
+        for (let i = 1; i < latlngs.length; i++) cum[i] = cum[i - 1] + latlngs[i - 1].distanceTo(latlngs[i]);
+        return cum;
+      };
+
+      const posToS = (latlngs, cum, p) => {
+        const i = Math.max(0, Math.min(latlngs.length - 2, p.idx));
+        const segLen = latlngs[i].distanceTo(latlngs[i + 1]);
+        const t = (typeof p.t === "number" && isFinite(p.t)) ? Math.max(0, Math.min(1, p.t)) : 0;
+        return cum[i] + t * segLen;
+      };
+
+      const orient2 = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+
+      const onSeg2 = (a, b, c) =>
+        Math.min(a.x, b.x) - 1e-9 <= c.x && c.x <= Math.max(a.x, b.x) + 1e-9 &&
+        Math.min(a.y, b.y) - 1e-9 <= c.y && c.y <= Math.max(a.y, b.y) + 1e-9;
+
+      const segIntersect2 = (a, b, c, d) => {
+        const o1 = orient2(a, b, c);
+        const o2 = orient2(a, b, d);
+        const o3 = orient2(c, d, a);
+        const o4 = orient2(c, d, b);
+
+        const s1 = (o1 > 0) - (o1 < 0);
+        const s2 = (o2 > 0) - (o2 < 0);
+        const s3 = (o3 > 0) - (o3 < 0);
+        const s4 = (o4 > 0) - (o4 < 0);
+
+        if (s1 === 0 && onSeg2(a, b, c)) return true;
+        if (s2 === 0 && onSeg2(a, b, d)) return true;
+        if (s3 === 0 && onSeg2(c, d, a)) return true;
+        if (s4 === 0 && onSeg2(c, d, b)) return true;
+
+        return (s1 !== s2) && (s3 !== s4);
+      };
+
+      const lineIntersectsPolyline = (fromLatLng, toLatLng, latlngs) => {
+        if (!fromLatLng || !toLatLng || !latlngs || latlngs.length < 2) return false;
+        const A = projPt(fromLatLng);
+        const B = projPt(toLatLng);
+        for (let i = 0; i < latlngs.length - 1; i++) {
+          const C = projPt(latlngs[i]);
+          const D = projPt(latlngs[i + 1]);
+          if (segIntersect2(A, B, C, D)) return true;
+        }
+        return false;
+      };
+
+      const posFromS = (latlngs, cum, s) => {
+        if (!latlngs || latlngs.length < 2 || !cum || cum.length !== latlngs.length) return null;
+        const total = cum[cum.length - 1] || 0;
+        let ss = Math.max(0, Math.min(total, s || 0));
+
+        let i = 0;
+        while (i < cum.length - 2 && cum[i + 1] < ss) i++;
+
+        const segLen = latlngs[i].distanceTo(latlngs[i + 1]) || 0;
+        const t = segLen > 0 ? (ss - cum[i]) / segLen : 0;
+
+        const A = projPt(latlngs[i]);
+        const B = projPt(latlngs[i + 1]);
+        const x = A.x + (B.x - A.x) * t;
+        const y = A.y + (B.y - A.y) * t;
+
+        const ll = map.options.crs.unproject(L.point(x, y));
+        return { idx: i, t, closestLatLng: ll };
+      };
+
+      const closestPointOnPolylineLimitedTo = (latlngs, targetLatLng, limitPos) => {
+        if (!latlngs || latlngs.length < 2) return null;
+        if (!limitPos) return closestPointOnPolyline(latlngs, targetLatLng);
+
+        const P = proj(targetLatLng);
+        let best = null;
+
+        const lastSegIdx = Math.max(0, Math.min(latlngs.length - 2, limitPos.idx));
+        for (let i = 0; i <= lastSegIdx; i++) {
+          const A = proj(latlngs[i]);
+          const Bfull = proj(latlngs[i + 1]);
+
+          let B = Bfull;
+          if (i === lastSegIdx) {
+            const tt = (typeof limitPos.t === "number" && isFinite(limitPos.t)) ? Math.max(0, Math.min(1, limitPos.t)) : 0;
+            if (tt < 1) B = { x: A.x + (Bfull.x - A.x) * tt, y: A.y + (Bfull.y - A.y) * tt };
+          }
+
+          const cp = closestPointOnSegment(P, A, B);
+          const dx = P.x - cp.x, dy = P.y - cp.y;
+          const dproj = Math.hypot(dx, dy);
+          if (!best || dproj < best.dproj) best = { i, t: cp.t, x: cp.x, y: cp.y, dproj };
+        }
+
+        if (!best) return null;
+        const ll = map.options.crs.unproject(L.point(best.x, best.y));
+        const dMeters = targetLatLng.distanceTo(ll);
+        return { idx: best.i, t: best.t, closestLatLng: ll, distMeters: dMeters };
+      };
+
+      const extractSubPolylineForward = (latlngs, cum, a, b) => {
         if (!latlngs || latlngs.length < 2 || !a || !b) return null;
 
-        const aPos = a.idx + a.t;
-        const bPos = b.idx + b.t;
-        const forward = aPos <= bPos;
-        const start = forward ? a : b;
-        const end = forward ? b : a;
+        const closed = isClosedLoop(latlngs);
+        const total = (cum && cum.length === latlngs.length) ? (cum[cum.length - 1] || 0) : 0;
 
-        const out = [start.closestLatLng];
-        for (let i = start.idx + 1; i <= end.idx; i++) out.push(latlngs[i]);
-        out[out.length - 1] = end.closestLatLng;
+        const sa = posToS(latlngs, cum, a);
+        const sb = posToS(latlngs, cum, b);
 
-        return forward ? out : out.reverse();
+        if (!closed && sa > sb + 1e-6) return null;
+
+        if (!closed || sa <= sb + 1e-6) {
+          const out = [a.closestLatLng];
+          for (let i = a.idx + 1; i <= b.idx; i++) out.push(latlngs[i]);
+          out[out.length - 1] = b.closestLatLng;
+          return out;
+        }
+
+        if (total <= 0) return null;
+
+        const out = [a.closestLatLng];
+        for (let i = a.idx + 1; i < latlngs.length; i++) out.push(latlngs[i]);
+        for (let i = 1; i <= b.idx; i++) out.push(latlngs[i]);
+        out.push(b.closestLatLng);
+        return out;
       };
 
-      const pickBestTrack = (fromLatLng, toLatLng) => {
-        if (!trackIndex.length) return null;
-        let best = null;
-        for (const tr of trackIndex) {
-          const c1 = closestPointOnPolyline(tr.latlngs, fromLatLng);
-          const c2 = closestPointOnPolyline(tr.latlngs, toLatLng);
-          if (!c1 || !c2) continue;
-          const score = c1.distMeters + c2.distMeters;
-          if (!best || score < best.score) best = { track: tr, from: c1, to: c2, score };
+      const routeCostForTrack = (fromLatLng, toLatLng, tr, state) => {
+        if (!fromLatLng || !toLatLng || !tr?.latlngs?.length) return null;
+
+        const latlngs = tr.latlngs;
+        const cum = tr.cum || buildCumulative(latlngs);
+
+        const destPos = closestPointOnPolyline(latlngs, toLatLng);
+        if (!destPos) return null;
+
+        const dTo = destPos.distMeters;
+
+        let entry = closestPointOnPolylineLimitedTo(latlngs, fromLatLng, destPos);
+        if (!entry) return null;
+
+        let entryS = posToS(latlngs, cum, entry);
+        const destS = posToS(latlngs, cum, destPos);
+
+        const lastS = (state && typeof state.lastS === "number" && isFinite(state.lastS)) ? state.lastS : -Infinity;
+        if (isFinite(lastS) && entryS < lastS) {
+          const adj = posFromS(latlngs, cum, lastS);
+          if (adj) {
+            entry = { ...entry, idx: adj.idx, t: adj.t, closestLatLng: adj.closestLatLng, distMeters: fromLatLng.distanceTo(adj.closestLatLng) };
+            entryS = lastS;
+          }
         }
-        return best;
+
+        const totalLen = (cum[cum.length - 1] || 0);
+        const closed = isClosedLoop(latlngs);
+
+        let trackDist = 0;
+        if (!closed) {
+          if (entryS > destS + 1e-6) return null;
+          trackDist = Math.max(0, destS - entryS);
+        } else {
+          trackDist = (destS >= entryS) ? (destS - entryS) : Math.max(0, (totalLen - entryS) + destS);
+        }
+
+        const dMe = entry.distMeters;
+        const total = dMe + trackDist + dTo;
+
+        return { tr, latlngs, cum, destPos, entry, dMe, dTo, trackDist, total, entryS, destS, totalLen, closed };
+      };
+
+      const chooseBestTrackForRoute = (fromLatLng, toLatLng, prevState) => {
+        if (!trackIndex.length) return null;
+
+        const candidates = [];
+        for (const tr of trackIndex) {
+          const st = (prevState?.chosenTrackKey && prevState.chosenTrackKey === tr._key) ? prevState : null;
+          const c = routeCostForTrack(fromLatLng, toLatLng, tr, st);
+          if (c && isFinite(c.total)) candidates.push(c);
+        }
+        if (!candidates.length) return null;
+
+        const intersecting = [];
+        for (const c of candidates) {
+          if (lineIntersectsPolyline(fromLatLng, toLatLng, c.latlngs)) intersecting.push(c);
+        }
+
+        const pool = intersecting.length ? intersecting : candidates;
+        pool.sort((a, b) => a.total - b.total);
+        return pool[0] || null;
+      };
+
+      const buildRouteLatLngsForChosen = (fromLatLng, toLatLng, chosen, state) => {
+        if (!fromLatLng || !toLatLng || !chosen) return null;
+
+        const out = [fromLatLng];
+
+        if (chosen.dMe > JOIN_EPS_METERS) out.push(chosen.entry.closestLatLng);
+
+        const seg = extractSubPolylineForward(chosen.latlngs, chosen.cum, chosen.entry, chosen.destPos);
+        if (seg?.length) {
+          const segCopy = seg.slice();
+          if (out.length && segCopy.length) {
+            const last = out[out.length - 1];
+            if (last && segCopy[0] && last.distanceTo(segCopy[0]) <= JOIN_EPS_METERS) segCopy.shift();
+          }
+          out.push(...segCopy);
+        }
+
+        const last = out[out.length - 1];
+        if (!last || last.distanceTo(toLatLng) > JOIN_EPS_METERS) out.push(toLatLng);
+
+        if (state) state.lastS = Math.max(state.lastS || -Infinity, chosen.entryS);
+        return out;
+      };
+
+      const computeBestRouteLatLngs = (fromLatLng, toLatLng, prevState) => {
+        if (!fromLatLng || !toLatLng) return { latlngs: null, chosenTrackLatlngs: null, nextState: prevState || null };
+        if (!trackIndex.length) return { latlngs: [fromLatLng, toLatLng], chosenTrackLatlngs: null, nextState: prevState || null };
+
+        let current = null;
+        if (prevState?.chosenTrackKey) {
+          const tr = trackIndex.find(t => t._key === prevState.chosenTrackKey);
+          if (tr) current = routeCostForTrack(fromLatLng, toLatLng, tr, prevState);
+        }
+
+        const best = chooseBestTrackForRoute(fromLatLng, toLatLng, prevState);
+
+        let chosen = best;
+        if (current && best && best.tr?._key && prevState?.chosenTrackKey === best.tr._key) {
+          chosen = current;
+        } else if (current && best) {
+          chosen = (best.total + 1.0 < current.total) ? best : current;
+        } else if (current && !best) {
+          chosen = current;
+        }
+
+        if (!chosen) return { latlngs: [fromLatLng, toLatLng], chosenTrackLatlngs: null, nextState: prevState || null };
+
+        const nextState = prevState && typeof prevState === "object" ? prevState : {};
+        nextState.destLatLng = toLatLng;
+        nextState.chosenTrackKey = chosen.tr._key;
+        if (!prevState || prevState.chosenTrackKey !== chosen.tr._key) nextState.lastS = -Infinity;
+
+        const line = buildRouteLatLngsForChosen(fromLatLng, toLatLng, chosen, nextState);
+        if (!line) return { latlngs: [fromLatLng, toLatLng], chosenTrackLatlngs: null, nextState };
+
+        return { latlngs: line, chosenTrackLatlngs: chosen.latlngs, nextState };
       };
 
       const renderResults = (items) => {
@@ -760,19 +1113,12 @@
             if (!lastLatLng) return;
 
             clearRoute();
+            trackGuideState = { destLatLng: it.latlng, chosenTrackKey: null, lastS: -Infinity };
 
-            const best = pickBestTrack(lastLatLng, it.latlng);
-            trackGuideState = { trackLatlngs: best ? best.track.latlngs : null, destLatLng: it.latlng };
+            const res = computeBestRouteLatLngs(lastLatLng, it.latlng, trackGuideState);
+            trackGuideState = res.nextState || trackGuideState;
 
-            let lineLatLngs = null;
-            if (best) {
-              const cur = closestPointOnPolyline(best.track.latlngs, lastLatLng);
-              const dst = closestPointOnPolyline(best.track.latlngs, it.latlng);
-              const seg = (cur && dst) ? extractSubPolyline(best.track.latlngs, cur, dst) : null;
-              if (seg?.length) lineLatLngs = [lastLatLng, cur.closestLatLng, ...seg.slice(1)];
-            }
-            if (!lineLatLngs) lineLatLngs = [lastLatLng, it.latlng];
-
+            const lineLatLngs = res.latlngs || [lastLatLng, it.latlng];
             trackGuideLine = L.polyline(lineLatLngs, { weight: 6, opacity: 0.85 }).addTo(map);
 
             const b = trackGuideLine.getBounds?.();
@@ -863,14 +1209,24 @@
 
         const newEntry = getKmzEntryByLabel(kmzSelect.value);
         if (newEntry) iconUrlInput.value = newEntry.iconUrl || "";
+
+        if (trackGuideLine && trackGuideState?.destLatLng && lastLatLng) {
+          const res = computeBestRouteLatLngs(lastLatLng, trackGuideState.destLatLng, trackGuideState);
+          trackGuideState = res.nextState || trackGuideState;
+          trackGuideLine.setLatLngs(res.latlngs || [lastLatLng, trackGuideState.destLatLng]);
+        }
       };
 
       const loadKmzData = async (fileName, arrayBuffer, meta) => {
+        const suggestedLabel = (meta?.label && String(meta.label).trim())
+          ? String(meta.label).trim()
+          : `${kmzCounter}. ${fileName}`;
+
         const color = meta?.color || kmzColorForIndex(kmzCounter);
         const kmzDotIcon = makeKmzDotIcon(color);
 
         const entry = {
-          label: meta?.label || "",
+          label: suggestedLabel,
           fileName,
           color,
           layer: null,
@@ -890,13 +1246,14 @@
         for (const f of feats) {
           const g = f?.geometry;
           if (!g) continue;
+
           if (g.type === "LineString" && Array.isArray(g.coordinates)) {
             const latlngs = g.coordinates.map(c => L.latLng(c[1], c[0]));
-            if (latlngs.length >= 2) trackIndex.push({ kmzLabel: entry.label || "", latlngs });
+            if (latlngs.length >= 2) trackIndex.push({ _key: `${entry.label || ""}::${trackIndex.length}`, kmzLabel: entry.label || "", latlngs, cum: buildCumulative(latlngs) });
           } else if (g.type === "MultiLineString" && Array.isArray(g.coordinates)) {
             for (const part of g.coordinates) {
               const latlngs = (part || []).map(c => L.latLng(c[1], c[0]));
-              if (latlngs.length >= 2) trackIndex.push({ kmzLabel: entry.label || "", latlngs });
+              if (latlngs.length >= 2) trackIndex.push({ _key: `${entry.label || ""}::${trackIndex.length}`, kmzLabel: entry.label || "", latlngs, cum: buildCumulative(latlngs) });
             }
           }
         }
@@ -915,27 +1272,33 @@
           }
         }).addTo(map);
 
-        const label = entry.label || `${kmzCounter++}. ${fileName}`;
-        entry.label = label;
+        if (!meta?.label) kmzCounter++;
+
         entry.layer = layer;
 
-        overlays[label] = layer;
-        layersControl.addOverlay(layer, label);
+        overlays[entry.label] = layer;
+        layersControl.addOverlay(layer, entry.label);
         kmzLayersList.push(entry);
 
         const opt = document.createElement("option");
-        opt.value = label;
-        opt.textContent = label;
+        opt.value = entry.label;
+        opt.textContent = entry.label;
         kmzSelect.appendChild(opt);
 
         kmzSelect.disabled = false;
-        kmzSelect.value = label;
+        kmzSelect.value = entry.label;
         iconUrlInput.value = "";
 
         const b = layer.getBounds?.();
         if (b?.isValid?.()) map.fitBounds(b.pad(0.2));
 
         saveKmzMeta();
+
+        if (trackGuideLine && trackGuideState?.destLatLng && lastLatLng) {
+          const res = computeBestRouteLatLngs(lastLatLng, trackGuideState.destLatLng, trackGuideState);
+          trackGuideState = res.nextState || trackGuideState;
+          trackGuideLine.setLatLngs(res.latlngs || [lastLatLng, trackGuideState.destLatLng]);
+        }
       };
 
       const loadKmzFile = async (file) => {
@@ -965,7 +1328,24 @@
         if (maxN > 0) kmzCounter = maxN + 1;
       };
 
-      /* ===== UBICACIÓN: el mapa se orienta, el icono NO gira ===== */
+      const initCompass = () => {
+        const handler = (ev) => {
+          let hd = NaN;
+          if (typeof ev.webkitCompassHeading === "number" && isFinite(ev.webkitCompassHeading)) {
+            hd = ev.webkitCompassHeading;
+          } else if (typeof ev.alpha === "number" && isFinite(ev.alpha)) {
+            if (ev.absolute === true) hd = (360 - ev.alpha) % 360;
+          }
+          if (typeof hd === "number" && isFinite(hd)) compassBearing = hd;
+        };
+
+        try {
+          window.addEventListener("deviceorientationabsolute", handler, { passive: true });
+          window.addEventListener("deviceorientation", handler, { passive: true });
+        } catch {}
+      };
+      initCompass();
+
       const updateMyLocation = (pos) => {
         const { latitude, longitude, accuracy, heading } = pos.coords;
 
@@ -990,9 +1370,7 @@
           if (ref) bearing = bearingBetween(ref, nextLatLng);
         }
 
-        if (!isFinite(bearing) && typeof compassBearing === "number" && isFinite(compassBearing)) {
-          bearing = compassBearing;
-        }
+        if (!isFinite(bearing) && typeof compassBearing === "number" && isFinite(compassBearing)) bearing = compassBearing;
 
         if (isFinite(bearing)) lastBearing = bearing;
         else if (typeof lastBearing === "number" && isFinite(lastBearing)) bearing = lastBearing;
@@ -1009,9 +1387,7 @@
 
         if (followChk.checked) {
           const b = (typeof bearing === "number" && isFinite(bearing)) ? bearing : lastBearing;
-          if (typeof b === "number" && isFinite(b)) {
-            setMapRotationDegrees(b); // SOLO rota el mapa (tiles/overlays), no la barra inferior/controles
-          }
+          if (typeof b === "number" && isFinite(b)) setMapRotationDegrees(b);
         } else {
           clearMapRotation();
         }
@@ -1026,15 +1402,10 @@
         if (followChk.checked) sendCoordsToSheets(latitude, longitude, accuracy, pos.timestamp);
 
         if (trackGuideLine && trackGuideState?.destLatLng && lastLatLng) {
-          if (trackGuideState.trackLatlngs?.length >= 2) {
-            const tr = trackGuideState.trackLatlngs;
-            const cur = closestPointOnPolyline(tr, lastLatLng);
-            const dst = closestPointOnPolyline(tr, trackGuideState.destLatLng);
-            const seg = (cur && dst) ? extractSubPolyline(tr, cur, dst) : null;
-            if (seg?.length) trackGuideLine.setLatLngs([lastLatLng, cur.closestLatLng, ...seg.slice(1)]);
-          } else {
-            trackGuideLine.setLatLngs([lastLatLng, trackGuideState.destLatLng]);
-          }
+          const res = computeBestRouteLatLngs(lastLatLng, trackGuideState.destLatLng, trackGuideState);
+          trackGuideState = res.nextState || trackGuideState;
+          const ll = res.latlngs || [lastLatLng, trackGuideState.destLatLng];
+          trackGuideLine.setLatLngs(ll);
 
           if (lastLatLng.distanceTo(trackGuideState.destLatLng) < 12) clearRoute();
         }
@@ -1061,6 +1432,7 @@
           if (typeof sp.token === "string") sheetsToken = sp.token.trim();
         }
         if (!sheetsEndpoint) sheetsEndpoint = DEFAULT_SHEETS_ENDPOINT;
+
         if (sheetsEndpointInput) sheetsEndpointInput.value = sheetsEndpoint || "";
         if (sheetsTokenInput) sheetsTokenInput.value = sheetsToken || "";
 
@@ -1069,6 +1441,9 @@
 
         const entry = getKmzEntryByLabel(kmzSelect.value);
         if (entry) iconUrlInput.value = entry.iconUrl || "";
+
+        updateHudOffset();
+        window.addEventListener("resize", updateHudOffset, { passive: true });
 
         if (navigator.geolocation) {
           navigator.geolocation.watchPosition(updateMyLocation, () => {}, {
@@ -1096,7 +1471,6 @@
         setHudMinimized(!hudEl.classList.contains("minimized"));
       });
 
-      // Expandir tocando el buscador cuando el HUD esté minimizado
       hudSearchEl?.addEventListener("click", (ev) => {
         if (hudEl.classList.contains("minimized")) {
           ev.preventDefault();
@@ -1106,7 +1480,6 @@
       });
 
       chooseFilesBtn.addEventListener("click", () => kmzInput.click());
-
       clearRouteBtn.addEventListener("click", clearRoute);
 
       searchBox.addEventListener("input", doSearch);
